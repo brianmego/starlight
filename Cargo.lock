@@ -2968,6 +2968,7 @@ dependencies = [
  "color-eyre",
  "env_logger",
  "log",
+ "once_cell",
  "serde",
  "surrealdb",
  "tokio",
