@@ -1,4 +1,5 @@
 mod handlers;
+mod error;
 mod models;
 use env_logger::Env;
 use log::info;
@@ -12,6 +13,9 @@ use surrealdb::engine::remote::ws::{Client, Ws};
 use surrealdb::Surreal;
 
 static DB: Lazy<Surreal<Client>> = Lazy::new(Surreal::init);
+
+type Error = error::Error;
+type Result<T> = error::Result<T>;
 
 /// Web server backend for the Girl Scout Starlight Service unit cookie scheduling site
 #[derive(Parser, Debug)]
@@ -33,6 +37,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
 
     let app = Router::new()
         .route("/status", get(handlers::status::handler))
+        .route("/login", post(handlers::login::handler_post))
         .route("/api/location", get(handlers::location::handler_get))
         .route("/api/location", post(handlers::location::handler_post))
         .route("/api/seed_data", get(handlers::seed_data::handler));
