@@ -9,21 +9,19 @@ use surrealdb::opt::auth::Scope;
 type LocationResult = surrealdb::Result<Json<Vec<Location>>>;
 
 pub async fn handler_get() -> Json<Vec<Location>> {
-    let jwt = DB
-        .signin(Scope {
-            namespace: "scouts",
-            database: "scouts",
-            scope: "user",
-            params: User::new("Brian", "abc123"),
-        })
-        .await.unwrap();
+    // let jwt = DB
+    //     .signin(Scope {
+    //         namespace: "scouts",
+    //         database: "scouts",
+    //         scope: "user",
+    //         params: User::new("Brian", "abc123"),
+    //     })
+    //     .await.unwrap();
 
-    dbg!(&jwt.as_insecure_token());
-    let valid = DB.authenticate(jwt).await.unwrap();
-    dbg!(valid);
-    println!("I am here");
+    // dbg!(&jwt.as_insecure_token());
+    // let valid = DB.authenticate(jwt).await.unwrap();
     let locations: Vec<Location> = DB.select("location").await.unwrap();
-    dbg!(&locations);
+    // dbg!(&locations);
     Json(locations)
 }
 
@@ -38,6 +36,18 @@ pub async fn handler_post(Json(payload): Json<LocationPayload>) -> StatusCode {
         Err(e) => println!("Error: {e}"),
     };
     StatusCode::CREATED
+}
+
+pub async fn handler_delete(Json(payload): Json<LocationPayload>) -> StatusCode {
+    let name = payload.name;
+    let location: Result<Option<Location>, surrealdb::Error> = DB
+        .delete(("location", name.to_lowercase()))
+        .await;
+    match location {
+        Ok(l) => println!("Removed: {l:?}"),
+        Err(e) => println!("Error: {e}"),
+    };
+    StatusCode::OK
 }
 
 #[derive(Debug, Deserialize)]

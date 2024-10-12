@@ -10,11 +10,19 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
+    "@nextui-org/listbox": "^2.1.22",
+    "@nextui-org/react": "^2.4.2",
+    "@nextui-org/system": "^2.2.2",
+    "@nextui-org/theme": "^2.2.6",
     "clsx": "^2.0.0",
+    "framer-motion": "^11.2.12",
     "next": "14.2.2",
     "next-auth": "5.0.0-beta.17",
+    "nextui-cli": "^0.3.2",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "socket.io-client": "^4.8.0",
+    "swr": "^2.2.5"
   },
   "devDependencies": {
     "@types/node": "^20",

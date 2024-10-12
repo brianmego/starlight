@@ -12,7 +12,7 @@ pub struct Credentials {
 
 pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<LoginResponse>> {
     dbg!("I am here");
-    dbg!("{}", &payload);
+    dbg!(&payload);
     let jwt = DB
         .signin(Scope {
             namespace: "scouts",
@@ -23,6 +23,7 @@ pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<Login
         .await?;
 
     dbg!(&jwt.as_insecure_token());
+    println!("{} logged in!", &payload.user);
     let response = LoginResponse::new(jwt);
     Ok(Json(response))
 }
