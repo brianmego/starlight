@@ -65,26 +65,6 @@ impl AppState {
     }
 }
 
-fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
-    info!("Socket.IO connected: {:?} {:?}", socket.ns(), socket.id);
-    socket.emit("auth", data).ok();
-
-    socket.on(
-        "message",
-        |socket: SocketRef, Data::<Value>(data), Bin(bin)| {
-            info!("Received event: {:?} {:?}", data, bin);
-            socket.bin(bin).emit("message-back", "boo").ok();
-        },
-    );
-
-    socket.on(
-        "message-with-ack",
-        |Data::<Value>(data), ack: AckSender, Bin(bin)| {
-            info!("Received event: {:?} {:?}", data, bin);
-            ack.bin(bin).send(data).ok();
-        },
-    );
-}
 
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
@@ -98,8 +78,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
 
     let (layer, io) = SocketIo::new_layer();
 
-    io.ns("/", on_connect);
-    io.ns("/custom", on_connect);
+    io.ns("/ws", handlers::ws::on_connect);
 
     let clients: Clients = Clients::default();
     let shared_state = Arc::new(AppState::new(clients));
@@ -112,7 +91,6 @@ async fn main() -> color_eyre::eyre::Result<()> {
         .route("/api/dayofweek", get(handlers::dayofweek::handler_get))
         .route("/api/timeslot", get(handlers::timeslot::handler_get))
         .route("/api/seed_data", get(handlers::seed_data::handler))
-        .route("/ws", get(handlers::ws::handler))
         .layer(layer)
         .with_state(shared_state)
         .layer(CorsLayer::new().allow_origin(Any));

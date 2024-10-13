@@ -1,4 +1,10 @@
-use crate::{AppState, Client, Clients};
+use crate::{models::location::Location, AppState, Client, Clients};
+use serde::{Deserialize, Serialize};
+use socketioxide::{
+    extract::{AckSender, Bin, Data, SocketRef},
+    SocketIo,
+};
+use serde_json::Value;
 use axum::extract::{
     ws::{Message, WebSocket, WebSocketUpgrade},
     State,
@@ -15,8 +21,8 @@ pub async fn handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> std::result::Result<Response, StatusCode> {
-    let wsState = WsState::new("foo".into(), state.clients.clone());
-    Ok(ws.on_upgrade(|socket| client_connection(socket, wsState)))
+    let ws_state = WsState::new("foo".into(), state.clients.clone());
+    Ok(ws.on_upgrade(|socket| client_connection(socket, ws_state)))
 }
 
 pub struct WsState {
@@ -86,4 +92,34 @@ async fn client_msg(msg: Message) {
             // }
         }
     }
+}
+#[derive(Serialize, Clone, Default)]
+struct LockedData {
+    locations: Vec<Location>
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+struct ClientState {
+    endpoint: String,
+    value: String
+}
+
+pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
+    info!("Socket.IO connected: {:?} {:?}", socket.ns(), socket.id);
+    socket.on(
+        "message",
+        |socket: SocketRef, Data::<ClientState>(data), Bin(bin)| {
+            info!("Received event: {:?} {:?}", data, bin);
+            let locked_data = LockedData{locations: vec![Location::new(&data.value)]};
+            socket.broadcast().emit("locked-data", locked_data).ok();
+        },
+    );
+
+    // socket.on(
+    //     "message-with-ack",
+    //     |Data::<Value>(data), ack: AckSender, Bin(bin)| {
+    //         info!("Received event: {:?} {:?}", data, bin);
+    //         ack.bin(bin).send(data).ok();
+    //     },
+    // );
 }

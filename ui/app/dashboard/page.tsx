@@ -1,19 +1,20 @@
 'use client';
 import useSWR from 'swr';
 import React, { useEffect, useState } from "react";
+import { LockedData } from '../lib/definitions';
 import { Listbox, ListboxItem } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getLocations } from "@/app/api/locations";
 import { io, Socket } from 'socket.io-client';
-
+import { useSession } from "next-auth/react";
 
 export default function Page() {
-    const socket = io("ws://192.168.1.190:1912");
-    const [data, setData] = useState(null);
+    const socket = io("ws://192.168.1.190:1912/ws");
+    const [lockedData, setLockedData]: [LockedData, any] = useState({ locations: [] });
 
     useEffect(() => {
-        socket.on('message-back', (msg) => {
-            setData(msg);
+        socket.on('locked-data', (msg) => {
+            setLockedData(msg);
         })
         return () => {
             socket.off("message");
@@ -27,7 +28,6 @@ export default function Page() {
     return (
         <>
             <h1><b>Dashboard Page</b></h1>
-            <p>{data}</p>
             <div className="flex gap-2">
                 <EndpointListbox endpoint={new Endpoint("location", "Locations")} clickHandler={handleClick} socket={socket} />
             </div>
@@ -75,10 +75,21 @@ function EndpointListbox({ endpoint, clickHandler, socket }) {
         () => Array.from(selectedKeys).join(", "),
         [selectedKeys]
     )
+    const [lockedData, setLockedData]: [[String], any] = useState([]);
+
+    useEffect(() => {
+        socket.on('locked-data', (msg: LockedData) => {
+            setLockedData(msg.locations.map(x => x.name));
+        })
+        return () => {
+            socket.off("message");
+        };
+    }, [socket]);
+
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
     return (
-        <div class="flex-none">
+        <div className="flex-none">
             <p>{endpoint.aria_label}</p>
             <ListboxWrapper>
                 <Listbox
@@ -90,7 +101,11 @@ function EndpointListbox({ endpoint, clickHandler, socket }) {
                 >
                     {
                         data.map(x => {
-                            return <ListboxItem key={endpoint.keyFunc(x)} onClick={() => { clickHandler(socket, endpoint.endpoint, selectedValue) }}>{endpoint.valFunc(x)}</ListboxItem>
+                            return <ListboxItem
+                                key={endpoint.keyFunc(x)}
+                                onClick={() => { clickHandler(socket, endpoint.endpoint, selectedValue) }}
+                                isDisabled={lockedData.includes(endpoint.keyFunc(x))}>{endpoint.valFunc(x)}
+                            </ListboxItem>
                         }
                         )
                     }

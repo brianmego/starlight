@@ -8,3 +8,7 @@ export type Location = {
 }
 
 export type Locations = [Location];
+
+export type LockedData = {
+    locations: [Location]
+}

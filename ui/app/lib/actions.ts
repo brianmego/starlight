@@ -1,4 +1,5 @@
 'use server';
+import { serialize } from 'cookie';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 
@@ -7,7 +8,12 @@ export async function authenticate(
     formData: FormData,
 ) {
     try {
-        await signIn('credentials', formData);
+        let user = await signIn('credentials', formData);
+        // serialize('session', "yourmom", {
+        //     httpOnly: true,
+        //     maxAge: 60 * 60, // one hour
+        //     path: '/',
+        // })
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
