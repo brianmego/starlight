@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 mod handlers;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -27,6 +29,7 @@ static DB: Lazy<Surreal<DbClient>> = Lazy::new(Surreal::init);
 
 type Error = error::Error;
 type Result<T> = error::Result<T>;
+
 
 /// Web server backend for the Girl Scout Starlight Service unit cookie scheduling site
 #[derive(Parser, Debug)]

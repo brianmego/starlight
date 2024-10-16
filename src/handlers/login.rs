@@ -2,7 +2,7 @@ use crate::models::user::User;
 use crate::{Result,Error, DB};
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use surrealdb::opt::auth::{Jwt, Scope};
+use surrealdb::opt::auth::{Jwt, Record};
 
 #[derive(Deserialize, Debug)]
 pub struct Credentials {
@@ -14,10 +14,10 @@ pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<Login
     dbg!("I am here");
     dbg!(&payload);
     let jwt = DB
-        .signin(Scope {
+        .signin(Record {
             namespace: "scouts",
             database: "scouts",
-            scope: "user",
+            access: "user",
             params: User::new(&payload.user, &payload.password),
         })
         .await?;

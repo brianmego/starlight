@@ -1,5 +1,4 @@
 use serde::Serialize;
-use surrealdb::opt::auth::Scope;
 
 #[derive(Serialize)]
 pub struct User<'a> {

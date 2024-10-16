@@ -1,4 +1,4 @@
-use surrealdb::opt::auth::Scope;
+use surrealdb::opt::auth::Record;
 
 use crate::{
     models::{location::Location, user::User},
@@ -30,18 +30,18 @@ async fn create_data() -> surrealdb::Result<()> {
 
 async fn create_users() -> surrealdb::Result<()> {
     let _: Result<surrealdb::opt::auth::Jwt, surrealdb::Error> = DB
-        .signup(Scope {
+        .signup(Record {
             namespace: "scouts",
             database: "scouts",
-            scope: "user",
+            access: "user",
             params: User::new("Brian", "abc123"),
         })
         .await;
     let _: Result<surrealdb::opt::auth::Jwt, surrealdb::Error> = DB
-        .signup(Scope {
+        .signup(Record {
             namespace: "scouts",
             database: "scouts",
-            scope: "loser",
+            access: "loser",
             params: User::new("Strian", "abc123"),
         })
         .await;

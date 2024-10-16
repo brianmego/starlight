@@ -4,7 +4,6 @@ use crate::DB;
 use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
-use surrealdb::opt::auth::Scope;
 
 type LocationResult = surrealdb::Result<Json<Vec<Location>>>;
 
