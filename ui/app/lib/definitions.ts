@@ -3,6 +3,11 @@ export type AuthenticatedUser = {
     jwt: string;
 };
 
+export type CredentialsInputs = {
+    user: string;
+    password: string;
+}
+
 export type Location = {
     name: string;
 }

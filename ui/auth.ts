@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import { authConfig } from './auth.config';
 import Credentials from 'next-auth/providers/credentials';
 import { AuthenticatedUser, CredentialsInputs } from '@/app/lib/definitions';
+import { cookies } from 'next/headers'
 
 async function getUser(credentials): Promise<AuthenticatedUser | undefined> {
     const res = await fetch("http://192.168.1.190:1912/login", {
@@ -26,17 +27,20 @@ async function getUser(credentials): Promise<AuthenticatedUser | undefined> {
 
 export const { auth, signIn, signOut } = NextAuth({
     ...authConfig,
-    providers: [Credentials({
-        async authorize(credentials) {
-            // async function login(formData: FormData) {
-            'use server'
-            let user = await getUser(credentials);
-            if (user) {
-                return user;
-            } else {
-                return null;
+    providers: [
+        Credentials({
+            authorize: async (credentials: CredentialsInputs) => {
+                // async function login(formData: FormData) {
+                'use server'
+                let user = await getUser(credentials);
+                console.log(`User: ${user.jwt}`);
+                cookies().set('jwt', user.jwt)
+                if (user) {
+                    return user;
+                } else {
+                    return null;
+                }
             }
-        }
-    })],
+        })],
 });
 
