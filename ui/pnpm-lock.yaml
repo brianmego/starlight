@@ -26,9 +26,9 @@ importers:
       clsx:
         specifier: ^2.0.0
         version: 2.1.0
-      cookie:
-        specifier: ^1.0.1
-        version: 1.0.1
+      cookies-next:
+        specifier: ^4.3.0
+        version: 4.3.0
       framer-motion:
         specifier: ^11.2.12
         version: 11.2.12(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -1439,9 +1439,12 @@ packages:
     resolution: {integrity: sha512-U71cyTamuh1CRNCfpGY6to28lxvNwPG4Guz/EVjgf3Jmzv0vlDp1atT9eS5dDjMYHucpHbWns6Lwf3BKz6svdw==}
     engines: {node: '>= 0.6'}
 
-  cookie@1.0.1:
-    resolution: {integrity: sha512-Xd8lFX4LM9QEEwxQpF9J9NTUh8pmdJO0cyRJhFiDoLTk2eH8FXlRv2IFGYVadZpqI3j8fhNrSdKCeYPxiAhLXw==}
-    engines: {node: '>=18'}
+  cookie@0.7.2:
+    resolution: {integrity: sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==}
+    engines: {node: '>= 0.6'}
+
+  cookies-next@4.3.0:
+    resolution: {integrity: sha512-XxeCwLR30cWwRd94sa9X5lRCDLVujtx73tv+N0doQCFIDl83fuuYdxbu/WQUt9aSV7EJx7bkMvJldjvzuFqr4w==}
 
   cross-spawn@7.0.3:
     resolution: {integrity: sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==}
@@ -5054,7 +5057,12 @@ snapshots:
 
   cookie@0.6.0: {}
 
-  cookie@1.0.1: {}
+  cookie@0.7.2: {}
+
+  cookies-next@4.3.0:
+    dependencies:
+      '@types/cookie': 0.6.0
+      cookie: 0.7.2
 
   cross-spawn@7.0.3:
     dependencies:

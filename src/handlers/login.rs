@@ -1,5 +1,5 @@
 use crate::models::user::User;
-use crate::{Result,Error, DB};
+use crate::{Error, Result, DB};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use surrealdb::opt::auth::{Jwt, Record};
@@ -11,8 +11,6 @@ pub struct Credentials {
 }
 
 pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<LoginResponse>> {
-    dbg!("I am here");
-    dbg!(&payload);
     let jwt = DB
         .signin(Record {
             namespace: "scouts",
@@ -21,8 +19,6 @@ pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<Login
             params: User::new(&payload.user, &payload.password),
         })
         .await?;
-
-    dbg!(&jwt.as_insecure_token());
     println!("{} logged in!", &payload.user);
     let response = LoginResponse::new(jwt);
     Ok(Json(response))

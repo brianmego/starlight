@@ -7,10 +7,12 @@ import { ListboxWrapper } from "./ListboxWrapper";
 import { getLocations } from "@/app/api/locations";
 import { io, Socket } from 'socket.io-client';
 import { useSession } from "next-auth/react";
+import { getCookie } from 'cookies-next'
 
 export default function Page() {
     const socket = io("ws://192.168.1.190:1912/ws");
     const [lockedData, setLockedData]: [LockedData, any] = useState({ locations: [] });
+    const jwt = getCookie('jwt')?.toString()
 
     useEffect(() => {
         socket.on('locked-data', (msg) => {
@@ -19,10 +21,10 @@ export default function Page() {
         return () => {
             socket.off("message");
         };
-    }, [socket]);
+    }, []);
 
     function handleClick(socket: Socket, endpoint, selectedValue) {
-        socket.send({ "endpoint": endpoint, "value": selectedValue });
+        socket.send({ "endpoint": endpoint, "value": selectedValue, "jwt": jwt });
     }
 
     return (
