@@ -10,11 +10,11 @@ mod models;
 use env_logger::Env;
 use log::info;
 use once_cell::sync::Lazy;
+use serde_json::Value;
 use socketioxide::{
     extract::{AckSender, Bin, Data, SocketRef},
     SocketIo,
 };
-use serde_json::Value;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -22,14 +22,13 @@ use axum::extract::ws::Message;
 use axum::routing::{delete, get, post};
 use axum::Router;
 use clap::Parser;
-use surrealdb::engine::remote::ws::{Client as DbClient, Ws};
+use surrealdb::{engine::remote::ws::{Client as DbClient, Ws}, opt::auth::Root};
 use surrealdb::Surreal;
 
 static DB: Lazy<Surreal<DbClient>> = Lazy::new(Surreal::init);
 
 type Error = error::Error;
 type Result<T> = error::Result<T>;
-
 
 /// Web server backend for the Girl Scout Starlight Service unit cookie scheduling site
 #[derive(Parser, Debug)]
@@ -68,7 +67,6 @@ impl AppState {
     }
 }
 
-
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
@@ -78,6 +76,11 @@ async fn main() -> color_eyre::eyre::Result<()> {
     // Connect to the database
     DB.connect::<Ws>("localhost:8000").await?;
     DB.use_ns("scouts").use_db("scouts").await?;
+    DB.signin(Root {
+        username: "root",
+        password: "root",
+    })
+    .await?;
 
     let (layer, io) = SocketIo::new_layer();
 

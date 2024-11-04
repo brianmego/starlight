@@ -3261,11 +3261,13 @@ name = "starlight"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "chrono",
  "clap",
  "color-eyre",
  "derive_more",
  "env_logger",
  "futures",
+ "jsonwebtoken",
  "log",
  "once_cell",
  "serde",

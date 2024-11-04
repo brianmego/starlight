@@ -1,10 +1,4 @@
-use crate::{models::location::Location, AppState, Client, Clients};
-use serde::{Deserialize, Serialize};
-use socketioxide::{
-    extract::{AckSender, Bin, Data, SocketRef},
-    SocketIo,
-};
-use serde_json::Value;
+use crate::{handlers::login::Claims, models::location::Location, AppState, Client, Clients};
 use axum::extract::{
     ws::{Message, WebSocket, WebSocketUpgrade},
     State,
@@ -12,7 +6,14 @@ use axum::extract::{
 use axum::http::StatusCode;
 use axum::response::Response;
 use futures::{FutureExt, StreamExt};
-use log::{error, info};
+use jsonwebtoken::{self, Algorithm, DecodingKey, Validation};
+use log::{error, info, debug};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use socketioxide::{
+    extract::{AckSender, Bin, Data, SocketRef},
+    SocketIo,
+};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -96,14 +97,50 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 
 #[derive(Serialize, Clone, Default)]
 struct LockedData {
-    locations: Vec<Location>
+    locations: Vec<Location>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+enum Endpoint {
+    DayOfWeek,
+    Location,
+    Timeslot,
+}
+struct UnknownEndpointError;
+impl TryFrom<String> for Endpoint {
+    type Error = UnknownEndpointError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if &value == "dayofweek" {
+            return Ok(Self::DayOfWeek);
+        } else if &value == "location" {
+            return Ok(Self::Location);
+        } else if &value == "timeslot" {
+            return Ok(Self::Timeslot);
+        }
+        Err(UnknownEndpointError)
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
+struct AllSelections {
+    location: Option<String>,
+    day: Option<String>,
+    timeslot: Option<String>,
+}
+impl AllSelections {
+    fn reservable(self) -> bool {
+        self.location.is_some() && self.day.is_some() && self.timeslot.is_some()
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct ClientState {
     endpoint: String,
     value: String,
-    jwt: String
+    jwt: String,
+    all_selections: AllSelections,
 }
 
 pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
@@ -111,17 +148,40 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
     socket.on(
         "message",
         |socket: SocketRef, Data::<ClientState>(data), Bin(bin)| {
-            info!("Received event: {:?} - {:?}", socket.id, data);
-            let locked_data = LockedData{locations: vec![Location::new(&data.value)]};
-            socket.broadcast().emit("locked-data", locked_data).ok();
+            debug!("Received event: {:?} - {:?}", socket.id, data);
+            let endpoint: Result<Endpoint, UnknownEndpointError> = data.endpoint.clone().try_into();
+            match endpoint {
+                Ok(ept) => match ept {
+                    Endpoint::DayOfWeek => info!("Do day of week things"),
+                    Endpoint::Location => {
+                        let locked_data = LockedData {
+                            locations: vec![Location::new(&data.value)],
+                        };
+                        socket.broadcast().emit("locked-data", locked_data).ok();
+                        info!("Do location things");
+                    }
+                    Endpoint::Timeslot => {
+                        info!("{:?}", data.all_selections);
+                        match data.all_selections.reservable() {
+                            true => info!("Reservable!"),
+                            false => info!("Not yet reservable..."),
+                        }
+                    }
+                },
+                Err(err) => error!("Unknown endpoint: {}", data.endpoint),
+            }
+            // let claims = jsonwebtoken::decode::<Claims>(
+            //     &data.jwt,
+            //     &DecodingKey::from_secret("secret".as_ref()),
+            //     &Validation::new(Algorithm::HS256),
+            // );
         },
     );
 
-    // socket.on(
-    //     "message-with-ack",
-    //     |Data::<Value>(data), ack: AckSender, Bin(bin)| {
-    //         info!("Received event: {:?} {:?}", data, bin);
-    //         ack.bin(bin).send(data).ok();
-    //     },
-    // );
+    socket.on(
+        "reserve",
+        |socket: SocketRef, Data::<String>(data), Bin(bin)| {
+            info!("Received event: {:?} - {:?}", socket.id, data);
+        }
+    );
 }

@@ -3,7 +3,7 @@ YELLOW := '\033[1;33m'
 NC := '\033[0m'
 
 run_backend:
-    cargo watch -cx 'run'
+    cargo watch -w src -cx 'run'
 
 run_frontend:
     cd ui && pnpm run dev

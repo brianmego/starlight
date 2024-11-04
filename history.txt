@@ -2,3 +2,5 @@
 select * from user
 select * from locations;
 select * from location
+select * from location;
+create location:home CONTENT {name: 'home'}

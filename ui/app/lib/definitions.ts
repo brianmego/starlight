@@ -17,3 +17,9 @@ export type Locations = [Location];
 export type LockedData = {
     locations: [Location]
 }
+
+export type AllSelections = {
+    location?: string,
+    day?: string,
+    timeslot?: string
+}
