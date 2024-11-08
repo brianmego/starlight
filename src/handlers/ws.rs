@@ -1,4 +1,4 @@
-use crate::{handlers::login::Claims, models::location::Location, AppState, Client, Clients};
+use crate::{handlers::login::Claims, models::{dayofweek::DayOfWeek, location::Location, timeslot::TimeSlot}, AppState, Client, Clients};
 use axum::extract::{
     ws::{Message, WebSocket, WebSocketUpgrade},
     State,
@@ -98,6 +98,8 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 #[derive(Serialize, Clone, Default)]
 struct LockedData {
     locations: Vec<Location>,
+    days: Vec<DayOfWeek>,
+    timeslots: Vec<TimeSlot>
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -152,20 +154,34 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
             let endpoint: Result<Endpoint, UnknownEndpointError> = data.endpoint.clone().try_into();
             match endpoint {
                 Ok(ept) => match ept {
-                    Endpoint::DayOfWeek => info!("Do day of week things"),
+                    Endpoint::DayOfWeek => {
+                        let locked_data = LockedData {
+                            locations: vec![],
+                            days: vec![DayOfWeek::new(&data.value)],
+                            timeslots: vec![],
+                        };
+                        socket.broadcast().emit("locked-data", locked_data).ok();
+                    },
                     Endpoint::Location => {
                         let locked_data = LockedData {
                             locations: vec![Location::new(&data.value)],
+                            days: vec![],
+                            timeslots: vec![],
                         };
                         socket.broadcast().emit("locked-data", locked_data).ok();
-                        info!("Do location things");
                     }
                     Endpoint::Timeslot => {
-                        info!("{:?}", data.all_selections);
-                        match data.all_selections.reservable() {
-                            true => info!("Reservable!"),
-                            false => info!("Not yet reservable..."),
-                        }
+                        let locked_data = LockedData {
+                            locations: vec![],
+                            days: vec![],
+                            timeslots: vec![TimeSlot::new(1, 3)],
+                        };
+                        socket.broadcast().emit("locked-data", locked_data).ok();
+                        // info!("{:?}", data.all_selections);
+                        // match data.all_selections.reservable() {
+                        //     true => info!("Reservable!"),
+                        //     false => info!("Not yet reservable..."),
+                        // }
                     }
                 },
                 Err(err) => error!("Unknown endpoint: {}", data.endpoint),
