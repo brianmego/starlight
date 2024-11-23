@@ -4,10 +4,11 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
-type DayOfWeekResult = surrealdb::Result<Json<Vec<DayOfWeek>>>;
+type DayOfWeekResult = Json<Vec<DayOfWeek>>;
 
-pub async fn handler_get() -> Json<Vec<DayOfWeek>> {
-    let days: Vec<DayOfWeek> = DB.select("dayofweek").await.unwrap();
+pub async fn handler_get() -> DayOfWeekResult {
+    let mut response = DB.query("SELECT * FROM dayofweek").await.unwrap();
+    let days: Vec<DayOfWeek> = DB.query("SELECT * FROM dayofweek").await.unwrap().take(0).expect("Data should exist");
     Json(days)
 }
 
@@ -22,4 +23,3 @@ mod tests {
         assert_eq!(result[0].name(), "Chuy's");
     }
 }
-

@@ -1,12 +1,16 @@
 use axum::{http::StatusCode, response::{ IntoResponse, Response }};
 use derive_more::From;
 
+use crate::handlers::login::LoginError;
+
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug, From)]
 pub enum Error {
     #[from]
     Custom(String),
+    #[from]
+    LoginError(LoginError),
 
     // -- Externals
     #[from]

@@ -8,19 +8,7 @@ use serde::Deserialize;
 type LocationResult = surrealdb::Result<Json<Vec<Location>>>;
 
 pub async fn handler_get() -> Json<Vec<Location>> {
-    // let jwt = DB
-    //     .signin(Scope {
-    //         namespace: "scouts",
-    //         database: "scouts",
-    //         scope: "user",
-    //         params: User::new("Brian", "abc123"),
-    //     })
-    //     .await.unwrap();
-
-    // dbg!(&jwt.as_insecure_token());
-    // let valid = DB.authenticate(jwt).await.unwrap();
     let locations: Vec<Location> = DB.select("location").await.unwrap();
-    // dbg!(&locations);
     Json(locations)
 }
 

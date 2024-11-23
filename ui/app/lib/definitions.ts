@@ -8,26 +8,30 @@ export type CredentialsInputs = {
     password: string;
 }
 
-export type Location = {
+export type ResLocation = {
+    key: string;
     name: string;
 }
-export type Day = {
-    name: string
+export type ResDay = {
+    key: number;
+    name: string;
 }
-export type Timeslot = {
-    name: string
+export type ResTime = {
+    key: number
+    name: number
 }
 
-export type Locations = [Location];
+export type Locations = [ResLocation];
 
 export type LockedData = {
-    locations: [Location],
-    days: [Day],
-    timeslots: [Timeslot]
+    locations: [ResLocation],
+    days: [ResDay],
+    startTime: [ResTime]
 }
 
 export type AllSelections = {
-    location?: string,
-    day?: string,
-    timeslot?: string
+    location?: string;
+    day?: string;
+    startTime?: string;
+    jwt: string;
 }

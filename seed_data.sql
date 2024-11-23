@@ -7,26 +7,35 @@ CREATE location:chuys SET name = "Chuy's";
 CREATE location:walgreens SET name = "Walgreens";
 CREATE location:walmart SET name = "Walmart";
 
-DEFINE TABLE dayofweek SCHEMAFULL
+DEFINE TABLE day_of_week SCHEMAFULL
     PERMISSIONS FOR select WHERE $access="user";
-DEFINE FIELD name ON dayofweek TYPE string;
-DEFINE INDEX name ON dayofweek FIELDS name UNIQUE;
+DEFINE FIELD name ON day_of_week TYPE string;
+DEFINE INDEX name ON day_of_week FIELDS name UNIQUE;
 
-CREATE dayofweek:monday SET name = "Monday";
-CREATE dayofweek:tuesday SET name = "Tuesday";
-CREATE dayofweek:wednesday SET name = "Wednesday";
-CREATE dayofweek:thursday SET name = "Thursday";
-CREATE dayofweek:friday SET name = "Friday";
-CREATE dayofweek:saturday SET name = "Saturday";
-CREATE dayofweek:sunday SET name = "Sunday";
-
-DEFINE TABLE timeslot SCHEMAFULL
+DEFINE TABLE reservation SCHEMAFULL
     PERMISSIONS FOR select WHERE $access="user";
-DEFINE FIELD start ON timeslot TYPE number;
-DEFINE FIELD end ON timeslot TYPE number;
-DEFINE INDEX slot ON timeslot FIELDS start, end UNIQUE;
-CREATE timeslot SET start=1, end=3;
-CREATE timeslot SET start=3, end=5;
+DEFINE FIELD start ON reservation TYPE number;
+DEFINE FIELD duration ON reservation TYPE number DEFAULT 2;
+DEFINE FIELD day_of_week ON reservation TYPE record<day_of_week>;
+DEFINE FIELD location ON reservation TYPE record<location>;
+DEFINE FIELD reserved_by ON reservation TYPE option<record<user>>;
+DEFINE INDEX slot ON reservation FIELDS start, location, day_of_week UNIQUE;
+
+CREATE reservation CONTENT {
+    day_of_week: day_of_week:1,
+    location: location:chuys,
+    start: 13,
+};
+CREATE reservation CONTENT {
+    day_of_week: day_of_week:2,
+    location: location:chuys,
+    start: 13,
+};
+CREATE reservation CONTENT {
+    day_of_week: day_of_week:1,
+    location: location:walgreens,
+    start: 15,
+};
 
 DEFINE TABLE user SCHEMAFULL
 PERMISSIONS
@@ -38,3 +47,17 @@ DEFINE INDEX username ON user FIELDS username UNIQUE;
 DEFINE ACCESS user ON DATABASE TYPE RECORD
     SIGNUP ( CREATE user SET username = $username, password = crypto::argon2::generate($password) )
     SIGNIN ( SELECT * FROM user WHERE username = $username AND crypto::argon2::compare(password, $password) );
+
+CREATE day_of_week:1 CONTENT {name: "Monday"};
+CREATE day_of_week:2 CONTENT {name: "Tuesday"};
+CREATE day_of_week:3 CONTENT {name: "Wednesday"};
+CREATE day_of_week:4 CONTENT {name: "Thursday"};
+CREATE day_of_week:5 CONTENT {name: "Friday"};
+CREATE day_of_week:6 CONTENT {name: "Saturday"};
+CREATE day_of_week:7 CONTENT {name: "Sunday"};
+
+LET $username="Brian";
+LET $password="abc123";
+
+CREATE user SET username=$username, password=crypto::argon2::generate($password);
+

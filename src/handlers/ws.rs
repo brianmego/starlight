@@ -1,4 +1,8 @@
-use crate::{handlers::login::Claims, models::{dayofweek::DayOfWeek, location::Location, timeslot::TimeSlot}, AppState, Client, Clients};
+use crate::{
+    handlers::login::{Claims, DbUser},
+    models::{dayofweek::DayOfWeek, location::Location, reservation::Reservation},
+    AppState, Client, Clients, DB,
+};
 use axum::extract::{
     ws::{Message, WebSocket, WebSocketUpgrade},
     State,
@@ -7,106 +11,30 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use futures::{FutureExt, StreamExt};
 use jsonwebtoken::{self, Algorithm, DecodingKey, Validation};
-use log::{error, info, debug};
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use socketioxide::{
     extract::{AckSender, Bin, Data, SocketRef},
     SocketIo,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
+use surrealdb::RecordId;
 use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
-
-// pub async fn handler(
-//     ws: WebSocketUpgrade,
-//     State(state): State<Arc<AppState>>,
-// ) -> std::result::Result<Response, StatusCode> {
-//     let ws_state = WsState::new("foo".into(), state.clients.clone());
-//     Ok(ws.on_upgrade(|socket| client_connection(socket, ws_state)))
-// }
-
-// pub struct WsState {
-//     id: String,
-//     clients: Clients,
-// }
-// impl WsState {
-//     pub fn new(id: String, clients: Clients) -> Self {
-//         Self { id, clients }
-//     }
-// }
-// pub async fn client_connection(ws: WebSocket, state: WsState) {
-//     let id = state.id;
-//     let clients = state.clients;
-
-//     let (client_ws_sender, mut client_ws_rcv) = ws.split();
-//     let (client_sender, client_rcv) = mpsc::unbounded_channel();
-//     let client_rcv = UnboundedReceiverStream::new(client_rcv);
-
-//     tokio::task::spawn(client_rcv.forward(client_ws_sender).map(|result| {
-//         if let Err(e) = result {
-//             error!("error sending websocket msg: {}", e);
-//         }
-//     }));
-
-//     tokio::spawn(async move {
-//         let mut val = 0;
-//         // let client = Client::new(Some(client_sender), Arc::new(RwLock::new(HashMap::new())));
-//         // let _ = client_sender.send(Ok(Message::Text("AllGood".into())));
-//         loop {
-//             val += 1;
-//             let _ = client_sender.send(Ok(Message::Text(val.to_string())));
-//             tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
-//         }
-//     });
-//     while let Some(result) = client_ws_rcv.next().await {
-//         let msg = match result {
-//             Ok(msg) => msg,
-//             Err(e) => {
-//                 error!("error receiving ws message: {}", e);
-//                 break;
-//             }
-//         };
-//         client_msg(msg).await;
-//     }
-//     // info!("{} disconnected", &id);
-// }
-
-// async fn client_msg(msg: Message) {
-//     match msg {
-//         Message::Text(t) => {
-//             dbg!(t);
-//             // let proxy_response: ProxyResponse = serde_json::from_str(&t).unwrap();
-//             // let active_clients = clients.read().await;
-//             // let client = active_clients.get(&id);
-//             // client
-//             //     .unwrap()
-//             //     .write_response(proxy_response.guid.clone(), proxy_response)
-//             //     .await
-//         }
-//         Message::Binary(_) => info!("Binary"),
-//         Message::Ping(_) | Message::Pong(_) => info!("Pingpong"),
-//         Message::Close(frame) => {
-//             info!("Close: {frame:?}")
-//             // if let Some(f) = frame {
-//             //     info!("{} disconnect message: {}", id, f.reason);
-//             // }
-//         }
-//     }
-// }
 
 #[derive(Serialize, Clone, Default)]
 struct LockedData {
     locations: Vec<Location>,
     days: Vec<DayOfWeek>,
-    timeslots: Vec<TimeSlot>
+    reservations: Vec<Reservation>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum Endpoint {
     DayOfWeek,
     Location,
-    Timeslot,
+    Reservation,
 }
 struct UnknownEndpointError;
 impl TryFrom<String> for Endpoint {
@@ -117,8 +45,8 @@ impl TryFrom<String> for Endpoint {
             return Ok(Self::DayOfWeek);
         } else if &value == "location" {
             return Ok(Self::Location);
-        } else if &value == "timeslot" {
-            return Ok(Self::Timeslot);
+        } else if &value == "reservation" {
+            return Ok(Self::Reservation);
         }
         Err(UnknownEndpointError)
     }
@@ -128,11 +56,12 @@ impl TryFrom<String> for Endpoint {
 struct AllSelections {
     location: Option<String>,
     day: Option<String>,
-    timeslot: Option<String>,
+    reservation: Option<String>,
+    jwt: String,
 }
 impl AllSelections {
-    fn reservable(self) -> bool {
-        self.location.is_some() && self.day.is_some() && self.timeslot.is_some()
+    fn reservable(&self) -> bool {
+        self.location.is_some() && self.day.is_some() && self.reservation.is_some()
     }
 }
 
@@ -142,11 +71,63 @@ struct ClientState {
     endpoint: String,
     value: String,
     jwt: String,
-    all_selections: AllSelections,
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+struct DbReservation {
+    id: RecordId,
+    location: RecordId,
+    start: u8,
+    duration: u8,
+    dayofweek: RecordId,
+    reserved_by: Option<RecordId>
 }
 
 pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
-    info!("Socket.IO connected: {:?} {:?}", socket.ns(), socket.id);
+    debug!("Socket.IO connected: {:?} {:?}", socket.ns(), socket.id);
+    socket.on(
+        "reserve",
+        |socket: SocketRef, Data::<AllSelections>(data), Bin(bin)| async move {
+            info!("Received Reserve event: {:?} - {:?}", socket.id, data);
+            match data.reservable() {
+                true => {
+                    let claims = jsonwebtoken::decode::<Claims>(
+                        &data.jwt,
+                        &DecodingKey::from_secret("secret".as_ref()),
+                        &Validation::new(Algorithm::HS256),
+                    );
+                    let id = claims.unwrap().claims.id();
+                    let location = data.location;
+                    let day_of_week = data.day;
+                    let start: u8 = data.reservation.unwrap().parse().unwrap();
+                    let mut response = DB.query(
+                        "SELECT *
+                        FROM reservation
+                        WHERE dayofweek = (SELECT * FROM ONLY dayofweek WHERE name=$dayofweek limit 1).id
+                          AND location = (SELECT * FROM ONLY location where name=$location limit 1).id
+                          AND start = $start",
+                    )
+                    .bind(("dayofweek", day_of_week))
+                    .bind(("location", location))
+                    .bind(("start", start)).await.unwrap();
+                    let reservation: Option<DbReservation> = response.take(0).unwrap();
+                    let mut reservation = reservation.unwrap();
+                    dbg!(&id);
+                    reservation.reserved_by = Some(DbUser::new(&id).id());
+                    dbg!(&reservation);
+                    let reservation_id = reservation.id.to_string();
+                    let (table, reservation_id) = reservation_id.split_once(':').unwrap();
+                    dbg!(table, reservation_id);
+                    let updated_reservation: Option<DbReservation> = DB.update(
+                        (table, reservation_id)
+                    ).content(reservation).await.unwrap();
+                    dbg!(updated_reservation);
+                    socket.emit("message", "Reserved!").ok()
+                }
+                false => socket.emit("message", "This is not reservable").ok(),
+            };
+        },
+    );
     socket.on(
         "message",
         |socket: SocketRef, Data::<ClientState>(data), Bin(bin)| {
@@ -158,23 +139,23 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
                         let locked_data = LockedData {
                             locations: vec![],
                             days: vec![DayOfWeek::new(&data.value)],
-                            timeslots: vec![],
+                            reservations: vec![],
                         };
                         socket.broadcast().emit("locked-data", locked_data).ok();
-                    },
+                    }
                     Endpoint::Location => {
                         let locked_data = LockedData {
                             locations: vec![Location::new(&data.value)],
                             days: vec![],
-                            timeslots: vec![],
+                            reservations: vec![],
                         };
                         socket.broadcast().emit("locked-data", locked_data).ok();
                     }
-                    Endpoint::Timeslot => {
+                    Endpoint::Reservation => {
                         let locked_data = LockedData {
                             locations: vec![],
                             days: vec![],
-                            timeslots: vec![TimeSlot::new(1, 3)],
+                            reservations: vec![Reservation::new(1, 3)],
                         };
                         socket.broadcast().emit("locked-data", locked_data).ok();
                         // info!("{:?}", data.all_selections);
@@ -192,12 +173,5 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
             //     &Validation::new(Algorithm::HS256),
             // );
         },
-    );
-
-    socket.on(
-        "reserve",
-        |socket: SocketRef, Data::<String>(data), Bin(bin)| {
-            info!("Received event: {:?} - {:?}", socket.id, data);
-        }
     );
 }
