@@ -1,5 +1,4 @@
 use crate::models::location::Location;
-use crate::models::user::User;
 use crate::DB;
 use axum::http::StatusCode;
 use axum::Json;

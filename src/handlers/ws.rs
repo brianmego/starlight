@@ -53,15 +53,16 @@ impl TryFrom<String> for Endpoint {
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct AllSelections {
     location: Option<String>,
     day: Option<String>,
-    reservation: Option<String>,
+    start_time: Option<String>,
     jwt: String,
 }
 impl AllSelections {
     fn reservable(&self) -> bool {
-        self.location.is_some() && self.day.is_some() && self.reservation.is_some()
+        self.location.is_some() && self.day.is_some() && self.start_time.is_some()
     }
 }
 
@@ -79,8 +80,8 @@ struct DbReservation {
     location: RecordId,
     start: u8,
     duration: u8,
-    dayofweek: RecordId,
-    reserved_by: Option<RecordId>
+    day_of_week: RecordId,
+    reserved_by: Option<RecordId>,
 }
 
 pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
@@ -97,19 +98,25 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
                         &Validation::new(Algorithm::HS256),
                     );
                     let id = claims.unwrap().claims.id();
-                    let location = data.location;
-                    let day_of_week = data.day;
-                    let start: u8 = data.reservation.unwrap().parse().unwrap();
-                    let mut response = DB.query(
-                        "SELECT *
-                        FROM reservation
-                        WHERE dayofweek = (SELECT * FROM ONLY dayofweek WHERE name=$dayofweek limit 1).id
-                          AND location = (SELECT * FROM ONLY location where name=$location limit 1).id
-                          AND start = $start",
-                    )
-                    .bind(("dayofweek", day_of_week))
-                    .bind(("location", location))
-                    .bind(("start", start)).await.unwrap();
+                    let day_id: i64 = data.day.unwrap().parse().unwrap();
+                    let day_of_week = RecordId::from(("day_of_week", day_id));
+                    let location = RecordId::from(("location", data.location.unwrap()));
+                    let start: u8 = data.start_time.unwrap().parse().unwrap();
+                    dbg!(&start, &location, &day_of_week);
+                    let mut response = DB
+                        .query(
+                            "SELECT *
+                            FROM reservation
+                            WHERE day_of_week = $day_of_week
+                              AND location = $location
+                              AND start = $start",
+                        )
+                        .bind(("day_of_week", day_of_week))
+                        .bind(("location", location))
+                        .bind(("start", start))
+                        .await
+                        .unwrap();
+                    dbg!(&response);
                     let reservation: Option<DbReservation> = response.take(0).unwrap();
                     let mut reservation = reservation.unwrap();
                     dbg!(&id);
@@ -118,9 +125,11 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
                     let reservation_id = reservation.id.to_string();
                     let (table, reservation_id) = reservation_id.split_once(':').unwrap();
                     dbg!(table, reservation_id);
-                    let updated_reservation: Option<DbReservation> = DB.update(
-                        (table, reservation_id)
-                    ).content(reservation).await.unwrap();
+                    let updated_reservation: Option<DbReservation> = DB
+                        .update((table, reservation_id))
+                        .content(reservation)
+                        .await
+                        .unwrap();
                     dbg!(updated_reservation);
                     socket.emit("message", "Reserved!").ok()
                 }

@@ -19,12 +19,6 @@ impl Reservation {
         let id = RecordId::from_str("reservation:70srxtzl3f26nrrxlf6h").unwrap();
         Self { id, day_of_week, location, start, duration }
     }
-    pub fn start(&self) -> u8 {
-        self.start
-    }
-    pub fn end(&self) -> u8 {
-        self.start + self.duration
-    }
 }
 
 

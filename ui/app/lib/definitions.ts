@@ -33,5 +33,5 @@ export type AllSelections = {
     location?: string;
     day?: string;
     startTime?: string;
-    jwt: string;
+    jwt?: string;
 }

@@ -50,7 +50,12 @@ export default function Page() {
 
 
     function handleReserve() {
-        const allSelections: AllSelections = { "location": selectedLocation, "day": selectedDay, "startTime": selectedStartTime, "jwt": jwt };
+        const allSelections: AllSelections = {
+            "location": selectedLocation,
+            "day": selectedDay,
+            "startTime": selectedStartTime,
+            "jwt": jwt
+        };
         socket.emit("reserve", allSelections);
     }
 

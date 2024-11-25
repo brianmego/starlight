@@ -10,8 +10,5 @@ impl DayOfWeek {
         let name = name.to_string();
         Self { name }
     }
-    pub fn name(&self) -> String {
-        self.name.clone()
-    }
 }
 

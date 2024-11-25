@@ -1,4 +1,3 @@
-use crate::models::user::User;
 use log::warn;
 use crate::{Error, Result, DB};
 use axum::Json;
@@ -16,12 +15,13 @@ pub struct Credentials {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    ID: String,
+    #[serde(rename = "UPPERCASE")]
+    id: String,
     exp: i64,
 }
 impl Claims {
     pub fn id(&self) -> String {
-        self.ID.clone()
+        self.id.clone()
     }
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -50,7 +50,7 @@ pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<Login
         Some(u) => {
             println!("{} logged in!", &payload.user);
             let claims = Claims {
-                ID: u.id.to_string(),
+                id: u.id.to_string(),
                 exp: ts,
             };
             let jwt = encode(

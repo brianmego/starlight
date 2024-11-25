@@ -1,5 +1,6 @@
 use crate::models::reservation::Reservation;
 use crate::DB;
+use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::Json;
 use log::info;
@@ -49,16 +50,22 @@ fn get_hour_suffix(hour: i8) -> String {
     match hour.lt(&12) {
         true => "am",
         false => "pm",
-    }.into()
+    }
+    .into()
 }
 struct ClockTime(i8);
 impl ClockTime {
     fn as_12_hour_time(&self) -> String {
         let start_time = self.0;
         let end_time = self.0 + 2;
-        format!("{} {} - {} {}", start_time % 12, get_hour_suffix(start_time), end_time % 12, get_hour_suffix(end_time))
+        format!(
+            "{} {} - {} {}",
+            start_time % 12,
+            get_hour_suffix(start_time),
+            end_time % 12,
+            get_hour_suffix(end_time)
+        )
     }
-
 }
 
 const RESERVATION_QUERY: &str = "
@@ -72,13 +79,43 @@ const RESERVATION_QUERY: &str = "
     FROM reservation;
 ";
 
+const USER_RESERVATION_QUERY: &str = "
+    SELECT
+        id AS reservation_id,
+        day_of_week AS day_of_week_id,
+        day_of_week.name AS day_of_week_name,
+        location AS location_id,
+        location.name AS location_name,
+        start AS start_time
+    FROM reservation
+    WHERE reserved_by=$user;
+";
+
 pub async fn handler_get() -> Json<Vec<ReservationResult>> {
     info!("/reservation");
     let mut response = DB.query(RESERVATION_QUERY).await.unwrap();
     let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
-    let mut reservation_list = vec![];
-    for res in reservation_db_list {
-        reservation_list.push(res.into())
-    }
+    let reservation_list = reservation_db_list
+        .into_iter()
+        .map(|res| res.into())
+        .collect();
+    Json(reservation_list)
+}
+
+pub async fn handler_get_user_reservations(
+    Path(user_id): Path<String>,
+) -> Json<Vec<ReservationResult>> {
+    info!("/reservation/{}", user_id);
+    let user_record = RecordId::from(("user", &user_id));
+    let mut response = DB
+        .query(USER_RESERVATION_QUERY)
+        .bind(("user", user_record))
+        .await
+        .unwrap();
+    let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
+    let reservation_list = reservation_db_list
+        .into_iter()
+        .map(|res| res.into())
+        .collect();
     Json(reservation_list)
 }

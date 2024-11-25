@@ -96,6 +96,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
         .route("/api/location", delete(handlers::location::handler_delete))
         .route("/api/dayofweek", get(handlers::dayofweek::handler_get))
         .route("/api/reservation", get(handlers::reservation::handler_get))
+        .route("/api/reservation/:user_id", get(handlers::reservation::handler_get_user_reservations))
         .layer(layer)
         .with_state(shared_state)
         .layer(CorsLayer::new().allow_origin(Any));
