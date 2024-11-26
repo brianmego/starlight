@@ -15,7 +15,7 @@ pub struct Credentials {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    #[serde(rename = "UPPERCASE")]
+    #[serde(rename = "ID")]
     id: String,
     exp: i64,
 }

@@ -19,7 +19,7 @@ export default function Page() {
     const [days, setDays] = useState<Array<ResDay>>([]);
     const [startTimes, setStartTimes] = useState<Array<ResTime>>([]);
     const fetcher = (...args) => fetch(...args).then(res => res.json());
-    const { data, error, isLoading } = useSWR(`http://192.168.1.190:1912/api/reservation`, fetcher);
+    const { data, error, isLoading } = useSWR(`http://0:1912/api/reservation`, fetcher);
 
     useEffect(() => {
         socket.on('message', (msg: String) => {

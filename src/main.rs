@@ -18,7 +18,7 @@ use socketioxide::{
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
-use axum::extract::ws::Message;
+use axum::{extract::ws::Message, http::{header::AUTHORIZATION, Method}};
 use axum::routing::{delete, get, post};
 use axum::Router;
 use clap::Parser;
@@ -96,10 +96,10 @@ async fn main() -> color_eyre::eyre::Result<()> {
         .route("/api/location", delete(handlers::location::handler_delete))
         .route("/api/dayofweek", get(handlers::dayofweek::handler_get))
         .route("/api/reservation", get(handlers::reservation::handler_get))
-        .route("/api/reservation/:user_id", get(handlers::reservation::handler_get_user_reservations))
+        .route("/api/reservation/:id", get(handlers::reservation::handler_get_user_reservations).delete(handlers::reservation::handler_delete_reservation))
         .layer(layer)
         .with_state(shared_state)
-        .layer(CorsLayer::new().allow_origin(Any));
+        .layer(CorsLayer::new().allow_origin(Any).allow_methods([Method::GET, Method::POST, Method::DELETE]).allow_headers([AUTHORIZATION]));
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
     info!("Running on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await?;

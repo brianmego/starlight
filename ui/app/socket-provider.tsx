@@ -9,6 +9,6 @@ export default function SocketProvider({
 }: {
         children: React.ReactNode
     }) {
-    const socket = io("ws://192.168.1.190:1912/ws");
+    const socket = io("ws://0:1912/ws");
     return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
 }

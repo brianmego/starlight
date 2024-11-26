@@ -5,7 +5,7 @@ import { AuthenticatedUser, CredentialsInputs } from '@/app/lib/definitions';
 import { cookies } from 'next/headers'
 
 async function getUser(credentials): Promise<AuthenticatedUser | undefined> {
-    const res = await fetch("http://192.168.1.190:1912/login", {
+    const res = await fetch("http://0:1912/login", {
         method: "POST",
         body: JSON.stringify({
             user: credentials.user,

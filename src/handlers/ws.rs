@@ -102,7 +102,6 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
                     let day_of_week = RecordId::from(("day_of_week", day_id));
                     let location = RecordId::from(("location", data.location.unwrap()));
                     let start: u8 = data.start_time.unwrap().parse().unwrap();
-                    dbg!(&start, &location, &day_of_week);
                     let mut response = DB
                         .query(
                             "SELECT *
@@ -116,21 +115,16 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
                         .bind(("start", start))
                         .await
                         .unwrap();
-                    dbg!(&response);
                     let reservation: Option<DbReservation> = response.take(0).unwrap();
                     let mut reservation = reservation.unwrap();
-                    dbg!(&id);
                     reservation.reserved_by = Some(DbUser::new(&id).id());
-                    dbg!(&reservation);
                     let reservation_id = reservation.id.to_string();
                     let (table, reservation_id) = reservation_id.split_once(':').unwrap();
-                    dbg!(table, reservation_id);
                     let updated_reservation: Option<DbReservation> = DB
                         .update((table, reservation_id))
                         .content(reservation)
                         .await
                         .unwrap();
-                    dbg!(updated_reservation);
                     socket.emit("message", "Reserved!").ok()
                 }
                 false => socket.emit("message", "This is not reservable").ok(),

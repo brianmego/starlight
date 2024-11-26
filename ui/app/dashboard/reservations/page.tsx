@@ -1,0 +1,43 @@
+'use client';
+import useSWR from 'swr';
+import { getCookie } from 'cookies-next'
+import jwt_decode from 'jwt-decode'
+import { Button, Card, CardHeader, CardBody, Divider } from "@nextui-org/react";
+
+export default function Page() {
+    const jwt = getCookie('jwt')?.toString()
+    const id = JSON.parse(atob(jwt.split('.')[1])).ID.split(':')[1]
+    const fetcher = (...args) => fetch(...args).then(res => res.json());
+    const { data, error, isLoading } = useSWR(`http://0:1912/api/reservation/${id}`, fetcher);
+    //
+    if (error) return <p>failed to load</p>
+    if (isLoading) return <p>Loading...</p>
+
+    async function deleteHandler(reservation_id: string) {
+        console.log(reservation_id);
+        await fetch(`http://0:1912/api/reservation/${reservation_id}`, {
+            method: "DELETE",
+            headers: {
+                "authorization": `Bearer ${jwt}`
+            }
+        })
+    }
+
+    return <>
+        <h1><b>My Reservations</b></h1>
+        {data.map(
+            (row, i) =>
+        <Card key={i} className="max-w-[400px]">
+            <CardHeader className="flex gap-3">
+                <div className="flex flex-col">
+                    <p className="text-md">{row.location_name} - {row.day_of_week_name}</p>
+                    <p className="text-small text-default-500">{row.start_time_name}</p>
+                    <Button color="primary" onPress={() => {deleteHandler(row.reservation_id)}}>Delete</Button>
+                </div>
+            </CardHeader>
+            <Divider />
+        </Card>
+        )}
+
+    </>;
+}

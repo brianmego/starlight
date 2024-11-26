@@ -1,8 +1,10 @@
+use crate::handlers::login::Claims;
 use crate::models::reservation::Reservation;
 use crate::DB;
 use axum::extract::Path;
-use axum::http::StatusCode;
+use axum::http::{header::HeaderMap, StatusCode};
 use axum::Json;
+use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -118,4 +120,33 @@ pub async fn handler_get_user_reservations(
         .map(|res| res.into())
         .collect();
     Json(reservation_list)
+}
+
+pub async fn handler_delete_reservation(
+    Path(reservation_id): Path<String>,
+    headers: HeaderMap,
+) -> StatusCode {
+    let auth_header = headers.get("Authorization");
+    let jwt = auth_header
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .split("Bearer ")
+        .last()
+        .unwrap();
+    let claims = jsonwebtoken::decode::<Claims>(
+        &jwt,
+        &DecodingKey::from_secret("secret".as_ref()),
+        &Validation::new(Algorithm::HS256),
+    );
+    let id = claims.unwrap().claims.id();
+    let reservation_id = RecordId::from(("reservation", reservation_id));
+    dbg!(&reservation_id);
+    let response = DB
+        .query("UPDATE reservation SET reserved_by=None WHERE id = $reservation_id")
+        .bind(("reservation_id", reservation_id))
+        .await
+        .unwrap();
+    dbg!(response);
+    StatusCode::OK
 }
