@@ -9,11 +9,6 @@ export async function authenticate(
 ) {
     try {
         let user = await signIn('credentials', formData);
-        // serialize('session', "yourmom", {
-        //     httpOnly: true,
-        //     maxAge: 60 * 60, // one hour
-        //     path: '/',
-        // })
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {

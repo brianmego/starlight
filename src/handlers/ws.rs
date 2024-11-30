@@ -97,35 +97,40 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
                         &DecodingKey::from_secret("secret".as_ref()),
                         &Validation::new(Algorithm::HS256),
                     );
-                    let id = claims.unwrap().claims.id();
-                    let day_id: i64 = data.day.unwrap().parse().unwrap();
-                    let day_of_week = RecordId::from(("day_of_week", day_id));
-                    let location = RecordId::from(("location", data.location.unwrap()));
-                    let start: u8 = data.start_time.unwrap().parse().unwrap();
-                    let mut response = DB
-                        .query(
-                            "SELECT *
+                    match claims {
+                        Ok(c) => {
+                            let id = c.claims.id();
+                            let day_id: i64 = data.day.unwrap().parse().unwrap();
+                            let day_of_week = RecordId::from(("day_of_week", day_id));
+                            let location = RecordId::from(("location", data.location.unwrap()));
+                            let start: u8 = data.start_time.unwrap().parse().unwrap();
+                            let mut response = DB
+                                .query(
+                                    "SELECT *
                             FROM reservation
                             WHERE day_of_week = $day_of_week
                               AND location = $location
                               AND start = $start",
-                        )
-                        .bind(("day_of_week", day_of_week))
-                        .bind(("location", location))
-                        .bind(("start", start))
-                        .await
-                        .unwrap();
-                    let reservation: Option<DbReservation> = response.take(0).unwrap();
-                    let mut reservation = reservation.unwrap();
-                    reservation.reserved_by = Some(DbUser::new(&id).id());
-                    let reservation_id = reservation.id.to_string();
-                    let (table, reservation_id) = reservation_id.split_once(':').unwrap();
-                    let updated_reservation: Option<DbReservation> = DB
-                        .update((table, reservation_id))
-                        .content(reservation)
-                        .await
-                        .unwrap();
-                    socket.emit("message", "Reserved!").ok()
+                                )
+                                .bind(("day_of_week", day_of_week))
+                                .bind(("location", location))
+                                .bind(("start", start))
+                                .await
+                                .unwrap();
+                            let reservation: Option<DbReservation> = response.take(0).unwrap();
+                            let mut reservation = reservation.unwrap();
+                            reservation.reserved_by = Some(DbUser::new(&id).id());
+                            let reservation_id = reservation.id.to_string();
+                            let (table, reservation_id) = reservation_id.split_once(':').unwrap();
+                            let updated_reservation: Option<DbReservation> = DB
+                                .update((table, reservation_id))
+                                .content(reservation)
+                                .await
+                                .unwrap();
+                            socket.emit("message", "Reserved!").ok()
+                        }
+                        Err(_) => socket.emit("message", "Session Expired").ok(),
+                    }
                 }
                 false => socket.emit("message", "This is not reservable").ok(),
             };

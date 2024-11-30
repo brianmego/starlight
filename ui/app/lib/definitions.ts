@@ -12,6 +12,10 @@ export type ResLocation = {
     key: string;
     name: string;
 }
+export type ResDate = {
+    key: string;
+    name: string;
+}
 export type ResDay = {
     key: number;
     name: string;

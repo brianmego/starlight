@@ -14,27 +14,23 @@ DEFINE INDEX name ON day_of_week FIELDS name UNIQUE;
 
 DEFINE TABLE reservation SCHEMAFULL
     PERMISSIONS FOR select WHERE $access="user";
-DEFINE FIELD start ON reservation TYPE number;
 DEFINE FIELD duration ON reservation TYPE number DEFAULT 2;
-DEFINE FIELD day_of_week ON reservation TYPE record<day_of_week>;
+DEFINE FIELD day ON reservation TYPE datetime;
 DEFINE FIELD location ON reservation TYPE record<location>;
 DEFINE FIELD reserved_by ON reservation TYPE option<record<user>>;
-DEFINE INDEX slot ON reservation FIELDS start, location, day_of_week UNIQUE;
+DEFINE INDEX slot ON reservation FIELDS start, location, day UNIQUE;
 
 CREATE reservation CONTENT {
-    day_of_week: day_of_week:1,
+    day: <datetime>"2024-12-01T13:00:00-06:00",
     location: location:chuys,
-    start: 13,
 };
 CREATE reservation CONTENT {
-    day_of_week: day_of_week:2,
+    day: <datetime>"2024-12-02T13:00:00-06:00",
     location: location:chuys,
-    start: 13,
 };
 CREATE reservation CONTENT {
-    day_of_week: day_of_week:1,
+    day: <datetime>"2024-12-01T15:00:00-06:00",
     location: location:walgreens,
-    start: 15,
 };
 
 DEFINE TABLE user SCHEMAFULL
@@ -61,3 +57,19 @@ LET $password="abc123";
 
 CREATE user SET username=$username, password=crypto::argon2::generate($password);
 
+DEFINE FUNCTION fn::day_of_week($date: datetime) {
+LET $day = time::wday($date);
+LET $name=
+     IF $day = 1 { 'Monday'; }
+ELSE IF $day = 2 { 'Tuesday'; }
+ELSE IF $day = 3 { 'Wednesday'; }
+ELSE IF $day = 4 { 'Thursday'; }
+ELSE IF $day = 5 { 'Friday'; }
+ELSE IF $day = 6 { 'Saturday'; }
+ELSE IF $day = 7 { 'Sunday'; }
+ELSE { THROW 'Invalid Day'; };
+RETURN {
+	day: $day,
+	name: $name
+};
+};

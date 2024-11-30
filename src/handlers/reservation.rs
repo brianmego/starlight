@@ -12,16 +12,18 @@ use surrealdb::RecordId;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ReservationDBResult {
-    reservation_id: RecordId,
-    day_of_week_id: RecordId,
+    date: String,
+    day_of_week_id: i8,
     day_of_week_name: String,
     location_id: RecordId,
     location_name: String,
+    reservation_id: RecordId,
     start_time: i8,
 }
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ReservationResult {
     reservation_id: String,
+    date: String,
     day_of_week_id: i8,
     day_of_week_name: String,
     location_id: String,
@@ -33,12 +35,8 @@ impl From<ReservationDBResult> for ReservationResult {
     fn from(value: ReservationDBResult) -> Self {
         ReservationResult {
             reservation_id: value.reservation_id.key().to_string(),
-            day_of_week_id: value
-                .day_of_week_id
-                .key()
-                .to_string()
-                .parse::<i8>()
-                .unwrap(),
+            date: value.date,
+            day_of_week_id: value.day_of_week_id,
             day_of_week_name: value.day_of_week_name,
             location_id: value.location_id.key().to_string(),
             location_name: value.location_name,
@@ -72,13 +70,15 @@ impl ClockTime {
 
 const RESERVATION_QUERY: &str = "
     SELECT
+        time::format(day, '%Y-%m-%d') as date,
         id AS reservation_id,
-        day_of_week AS day_of_week_id,
-        day_of_week.name AS day_of_week_name,
+        fn::day_of_week(day).day AS day_of_week_id,
+        fn::day_of_week(day).name AS day_of_week_name,
         location AS location_id,
         location.name AS location_name,
-        start AS start_time
-    FROM reservation;
+        time::hour(day)-6 AS start_time
+    FROM reservation
+    WHERE reserved_by=None;
 ";
 
 const USER_RESERVATION_QUERY: &str = "
@@ -125,7 +125,8 @@ pub async fn handler_get_user_reservations(
 pub async fn handler_delete_reservation(
     Path(reservation_id): Path<String>,
     headers: HeaderMap,
-) -> StatusCode {
+) -> Result<StatusCode, StatusCode> {
+    // return Err(StatusCode::UNAUTHORIZED);
     let auth_header = headers.get("Authorization");
     let jwt = auth_header
         .unwrap()
@@ -139,14 +140,12 @@ pub async fn handler_delete_reservation(
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::new(Algorithm::HS256),
     );
-    let id = claims.unwrap().claims.id();
+    let id = claims.map_err(|x| StatusCode::UNAUTHORIZED)?.claims.id();
     let reservation_id = RecordId::from(("reservation", reservation_id));
-    dbg!(&reservation_id);
     let response = DB
         .query("UPDATE reservation SET reserved_by=None WHERE id = $reservation_id")
         .bind(("reservation_id", reservation_id))
         .await
         .unwrap();
-    dbg!(response);
-    StatusCode::OK
+    Ok(StatusCode::OK)
 }

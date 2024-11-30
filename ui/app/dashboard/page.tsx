@@ -1,20 +1,23 @@
 'use client';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import React, { Key, useEffect, useState, useContext } from "react";
-import { AllSelections, LockedData, ResLocation, ResDay, ResTime } from '../lib/definitions';
-import { Button, Listbox, ListboxItem } from "@nextui-org/react";
+import { AllSelections, LockedData, ResLocation, ResDate, ResDay, ResTime } from '../lib/definitions';
+import { Button, Listbox, ListboxItem, Spacer } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
-import { io, Socket } from 'socket.io-client';
+import { Socket } from 'socket.io-client';
 import { getCookie } from 'cookies-next'
 import { SocketContext } from '../socket-provider';
-import { scryRenderedDOMComponentsWithClass } from 'react-dom/test-utils';
 
 export default function Page() {
     const socket: Socket = useContext(SocketContext)
     const jwt = getCookie('jwt')?.toString()
+
+    const [selectedDate, setSelectedDate] = useState(undefined);
     const [selectedLocation, setSelectedLocation] = useState(undefined);
     const [selectedDay, setSelectedDay] = useState(undefined);
     const [selectedStartTime, setStartTime] = useState(undefined);
+
+    const [dates, setDates] = useState<Array<ResDate>>([]);
     const [locations, setLocations] = useState<Array<ResLocation>>([]);
     const [days, setDays] = useState<Array<ResDay>>([]);
     const [startTimes, setStartTimes] = useState<Array<ResTime>>([]);
@@ -24,9 +27,15 @@ export default function Page() {
     useEffect(() => {
         socket.on('message', (msg: String) => {
             if (msg === "Reserved!") {
-                alert!("Reserved!")
+                alert("Reserved!")
+                setSelectedDate(undefined);
+                setSelectedLocation(undefined);
+                setSelectedDay(undefined);
+                setStartTime(undefined);
             } else if (msg === "This is not reservable") {
-                alert!("Not reservable")
+                alert("Not reservable")
+            } else if (msg === "Session Expired") {
+                alert("This session is no longer valid. Please log in again.")
             }
         })
         return () => {
@@ -37,16 +46,19 @@ export default function Page() {
     useEffect(() => {
         if (data) {
             let filteredData = selectedDay ? data.filter(x => x.day_of_week_id == selectedDay) : data;
+            filteredData = selectedDate ? filteredData.filter(x => x.date == selectedDate) : filteredData;
             filteredData = selectedLocation ? filteredData.filter(x => x.location_id == selectedLocation) : filteredData;
             filteredData = selectedStartTime ? filteredData.filter(x => x.start_time_id == selectedStartTime) : filteredData;
+            let dates = [...new Map(filteredData.map(x => [x.date, { key: x.date, value: x.date }])).values()];
             let locations = [...new Map(filteredData.map(x => [x.location_id, { key: x.location_id, value: x.location_name }])).values()];
             let days = [...new Map(filteredData.map(x => [x.day_of_week_id, { key: x.day_of_week_id, value: x.day_of_week_name }])).values()]
             let times = [...new Map(filteredData.map(x => [x.start_time_id, { key: x.start_time_id, value: x.start_time_name }])).values()]
+            setDates(dates);
             setLocations(locations);
             setDays(days)
             setStartTimes(times)
         }
-    }, [data, selectedLocation, selectedDay, selectedStartTime]);
+    }, [data, selectedDate, selectedLocation, selectedDay, selectedStartTime]);
 
 
     function handleReserve() {
@@ -72,14 +84,12 @@ export default function Page() {
         <>
             <h1><b>Dashboard Page</b></h1>
             <div className="flex gap-2">
+                <EndpointListbox label="Dates" setter={setSelectedDate} data={dates} />
                 <EndpointListbox label="Locations" setter={setSelectedLocation} data={locations} />
-            </div>
-            <div className="flex gap-2">
                 <EndpointListbox label="Days" setter={setSelectedDay} data={days} />
-            </div>
-            <div className="flex gap-2">
                 <EndpointListbox label="Time" setter={setStartTime} data={startTimes} />
             </div>
+            <Spacer y={4} />
             <ReserveButton clickHandler={handleReserve} />
         </>
     )
@@ -91,7 +101,7 @@ function ReserveButton({ clickHandler }) {
     )
 }
 
-function EndpointListbox({label, setter, data}) {
+function EndpointListbox({ label, setter, data }) {
     // const socket: Socket = useContext(SocketContext)
     const [selectedKeys, setSelectedKeys] = useState(new Set([]));
     const selectedValue = React.useMemo(
@@ -128,9 +138,9 @@ function EndpointListbox({label, setter, data}) {
                     aria-label={label}
                     // variant="flat"
                     selectionMode="single"
-                selectedKeys={selectedKeys}
-                // onSelectionChange={setSelectedKeys}
-                onSelectionChange={selectItem}
+                    selectedKeys={selectedKeys}
+                    // onSelectionChange={setSelectedKeys}
+                    onSelectionChange={selectItem}
                 // disabledKeys={lockedData}
                 // onSelectionChange={(key) => {
                 //     setSelectedKeys(key);
