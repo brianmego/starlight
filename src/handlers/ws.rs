@@ -1,7 +1,7 @@
 use crate::{
     handlers::login::{Claims, DbUser},
     models::{dayofweek::DayOfWeek, location::Location, reservation::Reservation},
-    AppState, Client, Clients, DB,
+    Client, Clients, DB,
 };
 use axum::extract::{
     ws::{Message, WebSocket, WebSocketUpgrade},

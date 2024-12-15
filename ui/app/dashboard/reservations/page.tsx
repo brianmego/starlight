@@ -42,7 +42,8 @@ export default function Page() {
                 <Card key={i} className="max-w-[400px]">
                     <CardHeader className="flex gap-3">
                         <div className="flex flex-col">
-                            <p className="text-md">{row.location_name} - {row.day_of_week_name}</p>
+                            <p className="text-md">{row.date} ({row.day_of_week_name})</p>
+                            <p className="text-md">{row.location_name}</p>
                             <p className="text-small text-default-500">{row.start_time_name}</p>
                             <Button color="primary" onPress={() => { deleteHandler(row.reservation_id) }}>Delete</Button>
                         </div>

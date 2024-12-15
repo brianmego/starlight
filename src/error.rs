@@ -14,16 +14,16 @@ pub enum Error {
 
     // -- Externals
     #[from]
-    Io(std::io::Error), // as example
+    Io(()), // as example
     #[from]
     DbError(surrealdb::Error),
 }
 
-impl Error {
-    pub fn custom(val: impl std::fmt::Display) -> Self {
-        Self::Custom(val.to_string())
-    }
-}
+// impl Error {
+//     pub fn custom(val: impl std::fmt::Display) -> Self {
+//         Self::Custom(val.to_string())
+//     }
+// }
 
 impl From<&str> for Error {
     fn from(val: &str) -> Self {

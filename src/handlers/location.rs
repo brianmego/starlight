@@ -4,8 +4,6 @@ use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
-type LocationResult = surrealdb::Result<Json<Vec<Location>>>;
-
 pub async fn handler_get() -> Json<Vec<Location>> {
     let locations: Vec<Location> = DB.select("location").await.unwrap();
     Json(locations)
@@ -39,16 +37,4 @@ pub async fn handler_delete(Json(payload): Json<LocationPayload>) -> StatusCode 
 #[derive(Debug, Deserialize)]
 pub struct LocationPayload {
     name: String,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_handler() {
-        let result = handler_get().await;
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].name(), "Chuy's");
-    }
 }

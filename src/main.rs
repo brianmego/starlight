@@ -18,12 +18,21 @@ use socketioxide::{
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
-use axum::{extract::ws::Message, http::{header::AUTHORIZATION, Method}};
-use axum::routing::{delete, get, post};
 use axum::Router;
+use axum::{
+    extract::ws::Message,
+    http::{header::AUTHORIZATION, Method},
+};
+use axum::{
+    http::HeaderValue,
+    routing::{delete, get, post},
+};
 use clap::Parser;
-use surrealdb::{engine::remote::ws::{Client as DbClient, Ws}, opt::auth::Root};
 use surrealdb::Surreal;
+use surrealdb::{
+    engine::remote::ws::{Client as DbClient, Ws},
+    opt::auth::Root,
+};
 
 static DB: Lazy<Surreal<DbClient>> = Lazy::new(Surreal::init);
 
@@ -57,16 +66,6 @@ impl Client {
 
 type Clients = Arc<RwLock<HashMap<String, Client>>>;
 
-pub struct AppState {
-    clients: Clients,
-}
-
-impl AppState {
-    fn new(clients: Clients) -> Self {
-        Self { clients }
-    }
-}
-
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
@@ -87,19 +86,26 @@ async fn main() -> color_eyre::eyre::Result<()> {
     io.ns("/ws", handlers::ws::on_connect);
 
     let clients: Clients = Clients::default();
-    let shared_state = Arc::new(AppState::new(clients));
     let app = Router::new()
         .route("/status", get(handlers::status::handler))
         .route("/login", post(handlers::login::handler_post))
         .route("/api/location", get(handlers::location::handler_get))
         .route("/api/location", post(handlers::location::handler_post))
         .route("/api/location", delete(handlers::location::handler_delete))
-        .route("/api/dayofweek", get(handlers::dayofweek::handler_get))
         .route("/api/reservation", get(handlers::reservation::handler_get))
-        .route("/api/reservation/:id", get(handlers::reservation::handler_get_user_reservations).delete(handlers::reservation::handler_delete_reservation))
+        .route(
+            "/api/reservation/:id",
+            get(handlers::reservation::handler_get_user_reservations)
+                .delete(handlers::reservation::handler_delete_reservation)
+                .post(handlers::reservation::handler_post),
+        )
         .layer(layer)
-        .with_state(shared_state)
-        .layer(CorsLayer::new().allow_origin(Any).allow_methods([Method::GET, Method::POST, Method::DELETE]).allow_headers([AUTHORIZATION]));
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
+                .allow_headers([AUTHORIZATION]),
+        );
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
     info!("Running on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await?;

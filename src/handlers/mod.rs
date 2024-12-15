@@ -1,4 +1,3 @@
-pub mod dayofweek;
 pub mod location;
 pub mod login;
 pub mod status;
