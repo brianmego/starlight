@@ -1,5 +1,5 @@
 use log::warn;
-use crate::{Error, Result, DB};
+use crate::{models::user::TroopType, Error, Result, DB};
 use axum::Json;
 use std::str::FromStr;
 use chrono::{Utc, TimeDelta};
@@ -17,6 +17,7 @@ pub struct Credentials {
 pub struct Claims {
     #[serde(rename = "ID")]
     id: String,
+    trooptype: TroopType,
     exp: i64,
 }
 impl Claims {
@@ -27,21 +28,22 @@ impl Claims {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DbUser {
     id: RecordId,
+    trooptype: RecordId,
 }
 
-impl DbUser {
-    pub fn new(id: &str) -> Self {
-        Self { id: RecordId::from(("user", id.strip_prefix("user:").unwrap())) }
-    }
-    pub fn id(&self) -> RecordId {
-        self.id.clone()
-    }
-}
+// impl DbUser {
+//     pub fn new(id: &str) -> Self {
+//         Self { id: RecordId::from(("user", id.strip_prefix("user:").unwrap())) }
+//     }
+//     pub fn id(&self) -> RecordId {
+//         self.id.clone()
+//     }
+// }
 
 pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<LoginResponse>> {
     let username = payload.user.clone();
     let password = payload.password.clone();
-    let user_id: Option<DbUser> = DB.query("SELECT id FROM user WHERE username = $username AND crypto::argon2::compare(password, $password)")
+    let user_id: Option<DbUser> = DB.query("SELECT id, trooptype FROM user WHERE username = $username AND crypto::argon2::compare(password, $password)")
         .bind(("username", username))
         .bind(("password", password))
         .await?.take(0)?;
@@ -51,6 +53,7 @@ pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<Login
             println!("{} logged in!", &payload.user);
             let claims = Claims {
                 id: u.id.to_string(),
+                trooptype: u.trooptype.into(),
                 exp: ts,
             };
             let jwt = encode(

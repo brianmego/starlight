@@ -1,32 +1,15 @@
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-mod handlers;
-use serde::Serialize;
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
 mod error;
+mod handlers;
 mod models;
 use env_logger::Env;
 use log::info;
 use once_cell::sync::Lazy;
-use serde_json::Value;
-use socketioxide::{
-    extract::{AckSender, Bin, Data, SocketRef},
-    SocketIo,
-};
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
+use axum::http::{header::AUTHORIZATION, Method};
+use axum::routing::{get, post};
 use axum::Router;
-use axum::{
-    extract::ws::Message,
-    http::{header::AUTHORIZATION, Method},
-};
-use axum::{
-    http::HeaderValue,
-    routing::{delete, get, post},
-};
 use clap::Parser;
 use surrealdb::Surreal;
 use surrealdb::{
@@ -47,25 +30,6 @@ struct Args {
     port: u16,
 }
 
-#[derive(Serialize)]
-pub struct WsResponse {}
-
-#[derive(Debug, Clone)]
-pub struct Client {
-    pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, axum::Error>>>,
-    pub responses: Arc<RwLock<HashMap<String, mpsc::Sender<WsResponse>>>>,
-}
-impl Client {
-    pub fn new(
-        sender: Option<mpsc::UnboundedSender<std::result::Result<Message, axum::Error>>>,
-        responses: Arc<RwLock<HashMap<String, mpsc::Sender<WsResponse>>>>,
-    ) -> Self {
-        Self { sender, responses }
-    }
-}
-
-type Clients = Arc<RwLock<HashMap<String, Client>>>;
-
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
@@ -81,17 +45,15 @@ async fn main() -> color_eyre::eyre::Result<()> {
     })
     .await?;
 
-    let (layer, io) = SocketIo::new_layer();
-
-    io.ns("/ws", handlers::ws::on_connect);
-
-    let clients: Clients = Clients::default();
     let app = Router::new()
         .route("/status", get(handlers::status::handler))
         .route("/login", post(handlers::login::handler_post))
-        .route("/api/location", get(handlers::location::handler_get))
-        .route("/api/location", post(handlers::location::handler_post))
-        .route("/api/location", delete(handlers::location::handler_delete))
+        .route(
+            "/api/location",
+            get(handlers::location::handler_get)
+                .post(handlers::location::handler_post)
+                .delete(handlers::location::handler_delete),
+        )
         .route("/api/reservation", get(handlers::reservation::handler_get))
         .route(
             "/api/reservation/:id",
@@ -99,7 +61,6 @@ async fn main() -> color_eyre::eyre::Result<()> {
                 .delete(handlers::reservation::handler_delete_reservation)
                 .post(handlers::reservation::handler_post),
         )
-        .layer(layer)
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

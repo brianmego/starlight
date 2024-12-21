@@ -1,7 +1,46 @@
+--Location
 DEFINE TABLE location SCHEMAFULL
     PERMISSIONS FOR select WHERE $access="user";
 DEFINE FIELD name ON location TYPE string;
 DEFINE INDEX name ON location FIELDS name UNIQUE;
+
+--DayOfWeek
+DEFINE TABLE day_of_week SCHEMAFULL
+    PERMISSIONS FOR select WHERE $access="user";
+DEFINE FIELD name ON day_of_week TYPE string;
+DEFINE INDEX name ON day_of_week FIELDS name UNIQUE;
+
+--Reservation
+DEFINE TABLE reservation SCHEMAFULL
+    PERMISSIONS FOR select WHERE $access="user";
+DEFINE FIELD duration ON reservation TYPE number DEFAULT 2;
+DEFINE FIELD day ON reservation TYPE datetime;
+DEFINE FIELD location ON reservation TYPE record<location>;
+DEFINE FIELD reserved_by ON reservation TYPE option<record<user>>;
+DEFINE INDEX slot ON reservation FIELDS start, location, day UNIQUE;
+
+--User
+DEFINE TABLE user SCHEMAFULL
+PERMISSIONS
+    FOR select, update, delete WHERE id = $auth.id;
+DEFINE FIELD username ON user TYPE string;
+DEFINE FIELD password ON user TYPE string;
+DEFINE FIELD trooptype ON user TYPE record<trooptype>;
+DEFINE INDEX username ON user FIELDS username UNIQUE;
+DEFINE ACCESS user ON DATABASE TYPE RECORD
+    SIGNUP ( CREATE user SET username = $username, password = crypto::argon2::generate($password) )
+    SIGNIN ( SELECT * FROM user WHERE username = $username AND crypto::argon2::compare(password, $password) );
+
+-- TroopType
+DEFINE TABLE trooptype SCHEMAFULL
+    PERMISSIONS FOR select WHERE $access="user";
+DEFINE FIELD name ON trooptype TYPE string;
+DEFINE INDEX name ON trooptype FIELDS name UNIQUE:
+
+-------Data-------
+CREATE trooptype:level1 SET name="Level1";
+CREATE trooptype:level2 SET name="Level2";
+
 
 CREATE location:chuys SET name = "Chuy's";
 CREATE location:fine_eyewear SET name = "Fine Eyewear";
@@ -26,19 +65,6 @@ CREATE location:walmart_620 SET name = "Walmart 620";
 CREATE location:walmart_grocery SET name = "Walmart Grocery";
 CREATE location:walmart_walton_way SET name = "Walmart Walton Way";
 CREATE location:walmart_walton_way_grocery SET name = "Walmart Walton Way Grocery";
-
-DEFINE TABLE day_of_week SCHEMAFULL
-    PERMISSIONS FOR select WHERE $access="user";
-DEFINE FIELD name ON day_of_week TYPE string;
-DEFINE INDEX name ON day_of_week FIELDS name UNIQUE;
-
-DEFINE TABLE reservation SCHEMAFULL
-    PERMISSIONS FOR select WHERE $access="user";
-DEFINE FIELD duration ON reservation TYPE number DEFAULT 2;
-DEFINE FIELD day ON reservation TYPE datetime;
-DEFINE FIELD location ON reservation TYPE record<location>;
-DEFINE FIELD reserved_by ON reservation TYPE option<record<user>>;
-DEFINE INDEX slot ON reservation FIELDS start, location, day UNIQUE;
 
 let $jan_weekends = ["18", "19", "25", "26"];
 let $jan_weekdays = ["20", "21", "22", "23", "24", "27", "28", "29", "30", "31"];
@@ -121,16 +147,6 @@ FOR $location in (select * from location where name.starts_with("Randall's") or 
     }
 };
 
-DEFINE TABLE user SCHEMAFULL
-PERMISSIONS
-    FOR select, update, delete WHERE id = $auth.id;
-DEFINE FIELD username ON user TYPE string;
-DEFINE FIELD password ON user TYPE string;
-DEFINE INDEX username ON user FIELDS username UNIQUE;
-
-DEFINE ACCESS user ON DATABASE TYPE RECORD
-    SIGNUP ( CREATE user SET username = $username, password = crypto::argon2::generate($password) )
-    SIGNIN ( SELECT * FROM user WHERE username = $username AND crypto::argon2::compare(password, $password) );
 
 CREATE day_of_week:1 CONTENT {name: "Monday"};
 CREATE day_of_week:2 CONTENT {name: "Tuesday"};
