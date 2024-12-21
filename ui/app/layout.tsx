@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Providers } from "./providers";
 import { Inter } from "next/font/google";
 import "./ui/globals.css";
-import SocketProvider from './socket-provider'
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,7 +18,7 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body className={`${inter.className} antialiased`}>
-                <SocketProvider>{children}</SocketProvider>
+                <Providers>{children}</Providers>
             </body>
         </html>
     );

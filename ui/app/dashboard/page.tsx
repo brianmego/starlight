@@ -4,12 +4,9 @@ import React, { Key, useEffect, useState, useContext } from "react";
 import { AllSelections, LockedData, ResLocation, ResDate, ResDay, ResTime } from '../lib/definitions';
 import { Button, Listbox, ListboxItem, Spacer } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
-import { Socket } from 'socket.io-client';
 import { getCookie } from 'cookies-next'
-import { SocketContext } from '../socket-provider';
 
 export default function Page() {
-    const socket: Socket = useContext(SocketContext)
     const jwt = getCookie('jwt')?.toString()
 
     const [filteredDate, setFilteredDate] = useState(undefined);
@@ -24,25 +21,6 @@ export default function Page() {
     const [startTimes, setStartTimes] = useState<Array<ResTime>>([]);
     const fetcher = (...args) => fetch(...args).then(res => res.json());
     const { data, error, isLoading } = useSWR(`http://0:1912/api/reservation`, fetcher);
-
-    useEffect(() => {
-        socket.on('message', (msg: String) => {
-            if (msg === "Reserved!") {
-                alert("Reserved!")
-                setFilteredDate(undefined);
-                setFilteredLocation(undefined);
-                setFilteredDay(undefined);
-                setFilteredTime(undefined);
-            } else if (msg === "This is not reservable") {
-                alert("Not reservable")
-            } else if (msg === "Session Expired") {
-                alert("This session is no longer valid. Please log in again.")
-            }
-        })
-        return () => {
-            socket.off("message");
-        };
-    }, [socket]);
 
     useEffect(() => {
         if (data) {
@@ -100,13 +78,8 @@ export default function Page() {
                 setFilteredTime(undefined);
             }
         })
-        socket.emit("reserve", allSelections);
     }
 
-    // function handleClick(endpoint: Endpoint, selectedValue: string) {
-    //     endpoint.setter(selectedValue);
-    //     socket.send({ "endpoint": endpoint.endpoint, "value": selectedValue, "jwt": jwt });
-    // }
 
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
@@ -133,22 +106,11 @@ function ReserveButton({ clickHandler, isDisabled }) {
 }
 
 function EndpointListbox({ label, setter, data }) {
-    // const socket: Socket = useContext(SocketContext)
     const [selectedKeys, setSelectedKeys] = useState(new Set([]));
     const selectedValue = React.useMemo(
         () => Array.from(selectedKeys).join(", "),
         [selectedKeys]
     )
-    // const [lockedData, setLockedData]: [[Key], any] = useState([]);
-
-    // useEffect(() => {
-    //     socket.on('locked-data', (msg: LockedData) => {
-    //         setLockedData(msg[endpoint.data_lock_key].map(x => x.key));
-    //     })
-    //     return () => {
-    //         socket.off("locked-data");
-    //     };
-    // }, [socket]);
 
     function selectItem(key) {
         if (key.size === 0) {

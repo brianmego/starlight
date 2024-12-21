@@ -124,8 +124,8 @@ const SET_RESERVATION_QUERY: &str = "
 
 pub async fn handler_get() -> Json<Vec<ReservationResult>> {
     info!("GET /reservation");
-    // let start_time = Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap();
-    let start_time = Utc::now();
+    let start_time = Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap();
+    // let start_time = Utc::now();
     let registration_window = RegistrationWindow::new(start_time);
     let start_time = SurrealDateTime::from(registration_window.start().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());

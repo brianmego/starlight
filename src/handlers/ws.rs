@@ -1,6 +1,6 @@
 use crate::{
     handlers::login::{Claims, DbUser},
-    models::{dayofweek::DayOfWeek, location::Location, reservation::Reservation},
+    models::{location::Location, reservation::Reservation},
     Client, Clients, DB,
 };
 use axum::extract::{
@@ -23,16 +23,9 @@ use surrealdb::RecordId;
 use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
-#[derive(Serialize, Clone, Default)]
-struct LockedData {
-    locations: Vec<Location>,
-    days: Vec<DayOfWeek>,
-    reservations: Vec<Reservation>,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum Endpoint {
-    DayOfWeek,
     Location,
     Reservation,
 }
@@ -41,9 +34,7 @@ impl TryFrom<String> for Endpoint {
     type Error = UnknownEndpointError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        if &value == "dayofweek" {
-            return Ok(Self::DayOfWeek);
-        } else if &value == "location" {
+        if &value == "location" {
             return Ok(Self::Location);
         } else if &value == "reservation" {
             return Ok(Self::Reservation);
@@ -134,52 +125,6 @@ pub fn on_connect(socket: SocketRef, Data(data): Data<Value>) {
                 }
                 false => socket.emit("message", "This is not reservable").ok(),
             };
-        },
-    );
-    socket.on(
-        "message",
-        |socket: SocketRef, Data::<ClientState>(data), Bin(bin)| {
-            debug!("Received event: {:?} - {:?}", socket.id, data);
-            let endpoint: Result<Endpoint, UnknownEndpointError> = data.endpoint.clone().try_into();
-            match endpoint {
-                Ok(ept) => match ept {
-                    Endpoint::DayOfWeek => {
-                        let locked_data = LockedData {
-                            locations: vec![],
-                            days: vec![DayOfWeek::new(&data.value)],
-                            reservations: vec![],
-                        };
-                        socket.broadcast().emit("locked-data", locked_data).ok();
-                    }
-                    Endpoint::Location => {
-                        let locked_data = LockedData {
-                            locations: vec![Location::new(&data.value)],
-                            days: vec![],
-                            reservations: vec![],
-                        };
-                        socket.broadcast().emit("locked-data", locked_data).ok();
-                    }
-                    Endpoint::Reservation => {
-                        let locked_data = LockedData {
-                            locations: vec![],
-                            days: vec![],
-                            reservations: vec![Reservation::new(1, 3)],
-                        };
-                        socket.broadcast().emit("locked-data", locked_data).ok();
-                        // info!("{:?}", data.all_selections);
-                        // match data.all_selections.reservable() {
-                        //     true => info!("Reservable!"),
-                        //     false => info!("Not yet reservable..."),
-                        // }
-                    }
-                },
-                Err(err) => error!("Unknown endpoint: {}", data.endpoint),
-            }
-            // let claims = jsonwebtoken::decode::<Claims>(
-            //     &data.jwt,
-            //     &DecodingKey::from_secret("secret".as_ref()),
-            //     &Validation::new(Algorithm::HS256),
-            // );
         },
     );
 }

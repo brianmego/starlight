@@ -2,4 +2,4 @@ node_modules
 target/
 nextjs-dashboard/
 surreal.db/
-tmp/
+local_sql/
