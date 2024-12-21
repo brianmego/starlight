@@ -1,5 +1,4 @@
 use crate::handlers::login::Claims;
-use crate::models::reservation::Reservation;
 use crate::DB;
 use axum::extract::Path;
 use axum::http::{header::HeaderMap, StatusCode};
@@ -9,7 +8,6 @@ use chrono_tz::{America::Chicago, Tz};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use log::info;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use surrealdb::sql::Datetime as SurrealDateTime;
 use surrealdb::RecordId;
 
@@ -22,8 +20,9 @@ pub struct ReservationDBResult {
     location_name: String,
     reservation_id: RecordId,
     start_time: i8,
+    next_week: Option<bool>
 }
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReservationResult {
     reservation_id: String,
     date: String,
@@ -33,6 +32,7 @@ pub struct ReservationResult {
     location_name: String,
     start_time_id: i8,
     start_time_name: String,
+    next_week: Option<bool>
 }
 impl From<ReservationDBResult> for ReservationResult {
     fn from(value: ReservationDBResult) -> Self {
@@ -45,6 +45,7 @@ impl From<ReservationDBResult> for ReservationResult {
             location_name: value.location_name,
             start_time_id: value.start_time,
             start_time_name: ClockTime(value.start_time).as_12_hour_time(),
+            next_week: value.next_week
         }
     }
 }
@@ -95,7 +96,8 @@ const AVAILABLE_RESERVATIONS_QUERY: &str = "
         fn::day_of_week(day - 6h).name AS day_of_week_name,
         location AS location_id,
         location.name AS location_name,
-        time::hour(day - 6h) AS start_time
+        time::hour(day - 6h) AS start_time,
+        day > $next_week_start as next_week
     FROM reservation
     WHERE reserved_by=None
       AND day > $start_time
@@ -122,22 +124,26 @@ const SET_RESERVATION_QUERY: &str = "
     WHERE id = $reservation_id
 ";
 
+pub fn now() -> DateTime<Tz> {
+    Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap()
+    // let start_time = Utc::now();
+}
 pub async fn handler_get() -> Json<Vec<ReservationResult>> {
     info!("GET /reservation");
-    let start_time = Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap();
-    // let start_time = Utc::now();
-    let registration_window = RegistrationWindow::new(start_time);
+    let registration_window = RegistrationWindow::new(now());
     let start_time = SurrealDateTime::from(registration_window.start().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());
+    let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
     dbg!(&registration_window);
     let mut response = DB
         .query(AVAILABLE_RESERVATIONS_QUERY)
         .bind(("start_time", start_time))
         .bind(("end_time", end_time))
+        .bind(("next_week_start", next_week_start))
         .await
         .unwrap();
     let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
-    let reservation_list = reservation_db_list
+    let reservation_list: Vec<ReservationResult> = reservation_db_list
         .into_iter()
         .map(|res| res.into())
         .collect();
@@ -174,9 +180,7 @@ pub async fn handler_post(
     Ok(StatusCode::OK)
 }
 
-pub async fn handler_get_user_reservations(
-    Path(user_id): Path<String>,
-) -> Json<Vec<ReservationResult>> {
+pub async fn handler_get_user_reservations(Path(user_id): Path<String>) -> Json<Vec<ReservationResult>> {
     info!("/reservation/{}", user_id);
     let user_record = RecordId::from(("user", &user_id));
     let mut response = DB
@@ -185,7 +189,7 @@ pub async fn handler_get_user_reservations(
         .await
         .unwrap();
     let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
-    let reservation_list = reservation_db_list
+    let reservation_list: Vec<ReservationResult> = reservation_db_list
         .into_iter()
         .map(|res| res.into())
         .collect();
@@ -224,10 +228,22 @@ pub async fn handler_delete_reservation(
 struct RegistrationWindow<Tz: TimeZone> {
     start: DateTime<Tz>,
     end: DateTime<Tz>,
+    next_week_start: DateTime<Tz>,
 }
 
 impl<Tz: TimeZone> RegistrationWindow<Tz> {
     fn new(start: DateTime<Tz>) -> Self {
+        // This is the most complicated logic on the site.
+        // You can see up to two Friday's in the future.
+        // The next week doesn't unlock until Monday at 10PM
+        // Therefore Monday at 9PM you can see 5 days of stuff (M-F),
+        // but Monday at 10PM you can see 12 days of stuff (M-F-F)
+        //
+        // Also, the next week rolls over on Friday at noon.
+        // Therefore, Friday at 11AM the current week will have a single day in it (Friday)
+        // At 12PM the current week now has Friday-Friday.
+        //
+        // The unit tests validate this crazy logic
         let days_to_add = match start.weekday() {
             Weekday::Mon => match start.hour() < 22 {
                 true => 5,
@@ -244,13 +260,32 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
             - TimeDelta::hours(start.hour().into())
             - TimeDelta::minutes(start.minute().into())
             - TimeDelta::seconds(start.second().into());
-        Self { start, end }
+        let next_week_start = match start.weekday() {
+            Weekday::Tue | Weekday::Wed | Weekday::Thu => end.clone() - TimeDelta::days(7),
+            Weekday::Fri => match start.hour() < 12 {
+                true => end.clone() - TimeDelta::days(7),
+                false => end.clone(),
+            },
+            Weekday::Mon => match start.hour() < 22 {
+                true => end.clone(),
+                false => end.clone() - TimeDelta::days(7),
+            },
+            Weekday::Sat | Weekday::Sun => end.clone(),
+        };
+        Self {
+            start,
+            end,
+            next_week_start,
+        }
     }
     fn start(&self) -> DateTime<Tz> {
         self.start.clone()
     }
     fn end(&self) -> DateTime<Tz> {
         self.end.clone()
+    }
+    fn next_week_start(&self) -> DateTime<Tz> {
+        self.next_week_start.clone()
     }
 }
 
@@ -269,13 +304,22 @@ mod tests {
         assert_eq!(actual, expected);
     }
 
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "18th")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "19th")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "20th before 10")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(); "20th after 10")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(); "21st")]
-    fn test_active_registration_window(start_time: DateTime<Tz>, end_time: DateTime<Tz>) {
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Saturday")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Sunday")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Monday before 10")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Monday after 10")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Tuesday")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 22, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Wednesday")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 23, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Thursday")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 24, 11, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Friday before noon")]
+    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 24, 12, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(); "Friday after noon")]
+    fn test_active_registration_window(
+        start_time: DateTime<Tz>,
+        end_time: DateTime<Tz>,
+        next_week_start: DateTime<Tz>,
+    ) {
         let actual = RegistrationWindow::new(start_time);
         assert_eq!(actual.end(), end_time);
+        assert_eq!(actual.next_week_start(), next_week_start);
     }
 }

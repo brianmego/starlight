@@ -36,7 +36,6 @@ export type LockedData = {
 export type AllSelections = {
     location: string;
     date: string;
-    day: number;
     startTime: number;
     jwt?: string;
 }
