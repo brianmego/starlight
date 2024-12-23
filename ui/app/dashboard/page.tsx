@@ -9,6 +9,7 @@ import { getCookie } from 'cookies-next'
 export default function Page() {
     const jwt = getCookie('jwt')?.toString()
 
+    const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
     const [filteredDate, setFilteredDate] = useState(undefined);
     const [filteredLocation, setFilteredLocation] = useState(undefined);
     const [filteredDay, setFilteredDay] = useState(undefined);
@@ -35,7 +36,8 @@ export default function Page() {
             let locations = [...new Map(filteredData.map(x => [x.location_id, { key: x.location_id, value: x.location_name }])).values()];
             let times = [...new Map(filteredData.map(x => [x.start_time_id, { key: x.start_time_id, value: x.start_time_name }])).values()]
             locations.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
-            dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
+            this_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
+            next_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
             times.sort((a, b) => { { return (a.key > b.key) - (a.key < b.key) } });
             setDates(dates);
             setThisWeekDates(this_week_dates);
@@ -88,6 +90,7 @@ export default function Page() {
     return (
         <>
             <h1><b>Dashboard Page</b></h1>
+            <h2>Troop Type: {parsed_jwt.trooptype}</h2>
             <div className="flex gap-2">
                 <div >
                     <EndpointListbox label="This Week" setter={setFilteredDate} data={thisWeekDates} />

@@ -112,7 +112,8 @@ const USER_RESERVATION_QUERY: &str = "
         fn::day_of_week(day - 6h).name AS day_of_week_name,
         location AS location_id,
         location.name AS location_name,
-        time::hour(day - 6h) AS start_time
+        time::hour(day - 6h) AS start_time,
+        day > $next_week_start as next_week
     FROM reservation
     WHERE reserved_by=$user
     ORDER BY date;
@@ -183,9 +184,12 @@ pub async fn handler_post(
 pub async fn handler_get_user_reservations(Path(user_id): Path<String>) -> Json<Vec<ReservationResult>> {
     info!("/reservation/{}", user_id);
     let user_record = RecordId::from(("user", &user_id));
+    let registration_window = RegistrationWindow::new(now());
+    let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
     let mut response = DB
         .query(USER_RESERVATION_QUERY)
         .bind(("user", user_record))
+        .bind(("next_week_start", next_week_start))
         .await
         .unwrap();
     let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
