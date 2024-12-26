@@ -1,5 +1,6 @@
 use crate::handlers::login::Claims;
-use crate::DB;
+use crate::models::reservation::Reservation;
+use crate::{queries, DB};
 use axum::extract::Path;
 use axum::http::{header::HeaderMap, StatusCode};
 use axum::Json;
@@ -20,7 +21,7 @@ pub struct ReservationDBResult {
     location_name: String,
     reservation_id: RecordId,
     start_time: i8,
-    next_week: Option<bool>
+    next_week: Option<bool>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReservationResult {
@@ -32,7 +33,7 @@ pub struct ReservationResult {
     location_name: String,
     start_time_id: i8,
     start_time_name: String,
-    next_week: Option<bool>
+    next_week: Option<bool>,
 }
 impl From<ReservationDBResult> for ReservationResult {
     fn from(value: ReservationDBResult) -> Self {
@@ -45,7 +46,7 @@ impl From<ReservationDBResult> for ReservationResult {
             location_name: value.location_name,
             start_time_id: value.start_time,
             start_time_name: ClockTime(value.start_time).as_12_hour_time(),
-            next_week: value.next_week
+            next_week: value.next_week,
         }
     }
 }
@@ -88,43 +89,6 @@ impl ClockTime {
     }
 }
 
-const AVAILABLE_RESERVATIONS_QUERY: &str = "
-    SELECT
-        time::format(day - 6h, '%Y-%m-%d') as date,
-        id AS reservation_id,
-        fn::day_of_week(day - 6h).day AS day_of_week_id,
-        fn::day_of_week(day - 6h).name AS day_of_week_name,
-        location AS location_id,
-        location.name AS location_name,
-        time::hour(day - 6h) AS start_time,
-        day > $next_week_start as next_week
-    FROM reservation
-    WHERE reserved_by=None
-      AND day > $start_time
-      AND day < $end_time
-";
-
-const USER_RESERVATION_QUERY: &str = "
-    SELECT
-        id AS reservation_id,
-        time::format(day - 6h, '%Y-%m-%d') as date,
-        fn::day_of_week(day - 6h).day AS day_of_week_id,
-        fn::day_of_week(day - 6h).name AS day_of_week_name,
-        location AS location_id,
-        location.name AS location_name,
-        time::hour(day - 6h) AS start_time,
-        day > $next_week_start as next_week
-    FROM reservation
-    WHERE reserved_by=$user
-    ORDER BY date;
-";
-
-const SET_RESERVATION_QUERY: &str = "
-    UPDATE reservation
-    SET reserved_by=$user
-    WHERE id = $reservation_id
-";
-
 pub fn now() -> DateTime<Tz> {
     Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap()
     // let start_time = Utc::now();
@@ -137,7 +101,7 @@ pub async fn handler_get() -> Json<Vec<ReservationResult>> {
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
     dbg!(&registration_window);
     let mut response = DB
-        .query(AVAILABLE_RESERVATIONS_QUERY)
+        .query(queries::AVAILABLE_RESERVATIONS_QUERY)
         .bind(("start_time", start_time))
         .bind(("end_time", end_time))
         .bind(("next_week_start", next_week_start))
@@ -164,30 +128,42 @@ pub async fn handler_post(
         .split("Bearer ")
         .last()
         .unwrap();
-    let claims = jsonwebtoken::decode::<Claims>(
+    let decoded_jwt = jsonwebtoken::decode::<Claims>(
         &jwt,
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::new(Algorithm::HS256),
-    );
-    let user_id = claims.map_err(|x| StatusCode::UNAUTHORIZED)?.claims.id();
+    )
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let registration_window = RegistrationWindow::new(now());
+
+    let claims = decoded_jwt.claims;
+    let user_id = claims.id();
+    dbg!(&reservation_id);
+    let reservation_record = Reservation::get_by_id(&reservation_id).await.unwrap();
     let reservation_id = RecordId::from(("reservation", reservation_id));
+    if !reservation_record.is_reservable_by_user(&user_id, registration_window.next_week_start()).await {
+        println!("Not enough tokens");
+        Err(StatusCode::PAYMENT_REQUIRED)?;
+    };
     let user_record = RecordId::from(user_id.split_once(':').unwrap());
-    let response = DB
-        .query(SET_RESERVATION_QUERY)
+    dbg!(reservation_record);
+    DB.query(queries::SET_RESERVATION_QUERY)
         .bind(("reservation_id", reservation_id))
         .bind(("user", user_record))
         .await
-        .unwrap();
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     Ok(StatusCode::OK)
 }
 
-pub async fn handler_get_user_reservations(Path(user_id): Path<String>) -> Json<Vec<ReservationResult>> {
+pub async fn handler_get_user_reservations(
+    Path(user_id): Path<String>,
+) -> Json<Vec<ReservationResult>> {
     info!("/reservation/{}", user_id);
     let user_record = RecordId::from(("user", &user_id));
     let registration_window = RegistrationWindow::new(now());
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
     let mut response = DB
-        .query(USER_RESERVATION_QUERY)
+        .query(queries::USER_RESERVATION_QUERY)
         .bind(("user", user_record))
         .bind(("next_week_start", next_week_start))
         .await
@@ -229,14 +205,14 @@ pub async fn handler_delete_reservation(
 }
 
 #[derive(Debug)]
-struct RegistrationWindow<Tz: TimeZone> {
+pub struct RegistrationWindow<Tz: TimeZone> {
     start: DateTime<Tz>,
     end: DateTime<Tz>,
     next_week_start: DateTime<Tz>,
 }
 
 impl<Tz: TimeZone> RegistrationWindow<Tz> {
-    fn new(start: DateTime<Tz>) -> Self {
+    pub fn new(start: DateTime<Tz>) -> Self {
         // This is the most complicated logic on the site.
         // You can see up to two Friday's in the future.
         // The next week doesn't unlock until Monday at 10PM
@@ -288,7 +264,7 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
     fn end(&self) -> DateTime<Tz> {
         self.end.clone()
     }
-    fn next_week_start(&self) -> DateTime<Tz> {
+    pub fn next_week_start(&self) -> DateTime<Tz> {
         self.next_week_start.clone()
     }
 }

@@ -1,6 +1,7 @@
 mod error;
 mod handlers;
 mod models;
+mod queries;
 use env_logger::Env;
 use log::info;
 use once_cell::sync::Lazy;
@@ -61,6 +62,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
                 .delete(handlers::reservation::handler_delete_reservation)
                 .post(handlers::reservation::handler_post),
         )
+        .route("/api/user/:id", get(handlers::user::handler_get))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

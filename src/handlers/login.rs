@@ -1,11 +1,10 @@
 use log::warn;
 use crate::{models::user::TroopType, Error, Result, DB};
 use axum::Json;
-use std::str::FromStr;
 use chrono::{Utc, TimeDelta};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
-use surrealdb::{opt::auth::{Jwt, Record}, RecordId};
+use surrealdb::RecordId;
 
 #[derive(Deserialize, Debug)]
 pub struct Credentials {
@@ -24,21 +23,15 @@ impl Claims {
     pub fn id(&self) -> String {
         self.id.clone()
     }
+    pub fn troop_type(&self) -> TroopType {
+        self.trooptype.clone()
+    }
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DbUser {
     id: RecordId,
     trooptype: RecordId,
 }
-
-// impl DbUser {
-//     pub fn new(id: &str) -> Self {
-//         Self { id: RecordId::from(("user", id.strip_prefix("user:").unwrap())) }
-//     }
-//     pub fn id(&self) -> RecordId {
-//         self.id.clone()
-//     }
-// }
 
 pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<LoginResponse>> {
     let username = payload.user.clone();

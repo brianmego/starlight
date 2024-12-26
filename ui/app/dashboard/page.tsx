@@ -5,11 +5,37 @@ import { AllSelections, LockedData, ResLocation, ResDate, ResDay, ResTime } from
 import { Button, Listbox, ListboxItem, Spacer } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
+import { setSourceMapsEnabled } from 'node:process';
 
-export default function Page() {
-    const jwt = getCookie('jwt')?.toString()
-
+function UserData() {
+    const jwt = getCookie('jwt')?.toString();
     const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
+    const fetcher = (...args) => fetch(...args).then(res => res.json());
+    const { data, error, isLoading } = useSWR(`http://0:1912/api/user/${parsed_jwt.ID}`, fetcher);
+    const [remainingTokens, setRemainingTokens] = useState(0);
+    const [totalTokens, setTotalTokens] = useState(0);
+
+    useEffect(() => {
+        if (data) {
+            setRemainingTokens(data.total_tokens - data.tokens_used);
+            setTotalTokens(data.total_tokens);
+        }
+    }, [data])
+
+    if (error) return <p>failed to load</p>
+    if (isLoading) return <p>Loading...</p>
+    return (
+        <>
+            <h2>Remaining Tokens: {remainingTokens}</h2>
+            <h2>Total Tokens: {totalTokens}</h2>
+            <h2>Troop Type: {parsed_jwt.trooptype}</h2>
+        </>
+    )
+
+}
+export default function Page() {
+    const jwt = getCookie('jwt')?.toString();
+
     const [filteredDate, setFilteredDate] = useState(undefined);
     const [filteredLocation, setFilteredLocation] = useState(undefined);
     const [filteredDay, setFilteredDay] = useState(undefined);
@@ -55,6 +81,7 @@ export default function Page() {
         }
     }, [dates, locations, startTimes])
 
+
     async function handleReserve() {
         const allSelections: AllSelections = {
             "location": locations[0].key,
@@ -72,6 +99,9 @@ export default function Page() {
         }).then(res => {
             if (res.status == 401) {
                 alert("This session is no longer valid. Please log in again.")
+
+            } else if (res.status == 402) {
+                alert("You do not have enough reservation tokens left at this time.")
             } else if (res.status == 200) {
                 alert("Reserved!")
 
@@ -90,7 +120,7 @@ export default function Page() {
     return (
         <>
             <h1><b>Dashboard Page</b></h1>
-            <h2>Troop Type: {parsed_jwt.trooptype}</h2>
+            <UserData />
             <div className="flex gap-2">
                 <div >
                     <EndpointListbox label="This Week" setter={setFilteredDate} data={thisWeekDates} />
