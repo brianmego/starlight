@@ -1,9 +1,11 @@
+use chrono::{Datelike, Timelike};
+use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use surrealdb::sql::Datetime as SurrealDateTime;
 use surrealdb::RecordId;
 
 use crate::{
-    handlers::reservation::{now, RegistrationWindow},
+    handlers::reservation::RegistrationWindow,
     queries, DB,
 };
 
@@ -32,6 +34,13 @@ pub struct User {
 }
 
 impl User {
+    fn new(id: &str, troop_type: TroopType, username: &str) -> Self {
+        User {
+            id: id.into(),
+            trooptype: troop_type,
+            username: username.into(),
+        }
+    }
     pub async fn get_by_id(id: &str) -> Option<Self> {
         let (_, id) = id.split_once(':')?;
         let row: UserDbRecord = DB.select(("user", id)).await.unwrap()?;
@@ -41,7 +50,7 @@ impl User {
         RecordId::from(("user", &self.id))
     }
     pub async fn tokens_used(&self) -> u32 {
-        let registration_window = RegistrationWindow::new(now());
+        let registration_window = RegistrationWindow::default();
         let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
         let mut response = DB
             .query(queries::USER_TOKEN_USAGE_COUNT)
@@ -50,16 +59,69 @@ impl User {
             .await
             .unwrap();
         let tokens_used: Option<i32> = response.take(0).unwrap();
-        dbg!(self.record_id(), registration_window.next_week_start(), &tokens_used);
+        dbg!(
+            self.record_id(),
+            registration_window.next_week_start(),
+            &tokens_used
+        );
         tokens_used
             .unwrap_or_default()
             .try_into()
             .unwrap_or_default()
     }
-    pub fn total_tokens(&self) -> u32 {
+    pub fn total_tokens(&self, registration_window: Option<RegistrationWindow<Tz>>) -> u32 {
+        // Level1
+        // M T W R F S U
+        // 1 0 1 0 1 0 0
+
+        // Level2
+        // M T W R F S U
+        // 1 1 1 1 1 0 0
+        let window = match registration_window {
+            Some(rw) => rw,
+            None => RegistrationWindow::default(),
+        };
         match self.trooptype {
-            TroopType::Level1 => 1,
-            TroopType::Level2 => 2,
+            TroopType::Level1 => match window.now().hour() < 22 {
+                true => match window.now().weekday() {
+                    chrono::Weekday::Mon => 3,
+                    chrono::Weekday::Tue => 1,
+                    chrono::Weekday::Wed => 1,
+                    chrono::Weekday::Thu => 2,
+                    chrono::Weekday::Fri => 2,
+                    chrono::Weekday::Sat => 3,
+                    chrono::Weekday::Sun => 3,
+                },
+                false => match window.now().weekday() {
+                    chrono::Weekday::Mon => 1,
+                    chrono::Weekday::Tue => 1,
+                    chrono::Weekday::Wed => 2,
+                    chrono::Weekday::Thu => 2,
+                    chrono::Weekday::Fri => 3,
+                    chrono::Weekday::Sat => 3,
+                    chrono::Weekday::Sun => 3,
+                },
+            },
+            TroopType::Level2 => match window.now().hour() < 22 {
+                true => match window.now().weekday() {
+                    chrono::Weekday::Mon => 5,
+                    chrono::Weekday::Tue => 1,
+                    chrono::Weekday::Wed => 2,
+                    chrono::Weekday::Thu => 3,
+                    chrono::Weekday::Fri => 4,
+                    chrono::Weekday::Sat => 5,
+                    chrono::Weekday::Sun => 5,
+                },
+                false => match window.now().weekday() {
+                    chrono::Weekday::Mon => 1,
+                    chrono::Weekday::Tue => 2,
+                    chrono::Weekday::Wed => 3,
+                    chrono::Weekday::Thu => 4,
+                    chrono::Weekday::Fri => 5,
+                    chrono::Weekday::Sat => 5,
+                    chrono::Weekday::Sun => 5,
+                },
+            },
         }
     }
 }
@@ -77,5 +139,141 @@ impl From<UserDbRecord> for User {
             trooptype: value.trooptype.into(),
             username: value.username,
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+    use chrono_tz::America::Chicago;
+    use test_case::test_case;
+
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap()),
+        3; "Lvl1 - Saturday"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap()),
+        3; "Lvl1 - Sunday"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap()),
+        3; "Lvl1 - Monday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap()),
+        1; "Lvl1 - Monday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap()),
+        1; "Lvl1 - Tuesday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 22, 0, 0).unwrap()),
+        1; "Lvl1 - Tuesday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 19, 0, 0).unwrap()),
+        1; "Lvl1 - Wednesday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 22, 0, 0).unwrap()),
+        2; "Lvl1 - Wednesday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 19, 0, 0).unwrap()),
+        2; "Lvl1 - Thursday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 22, 0, 0).unwrap()),
+        2; "Lvl1 - Thursday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 17, 0, 0).unwrap()),
+        2; "Lvl1 - Friday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
+        3; "Lvl1 - Friday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap()),
+        5; "Lvl2 - Saturday"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap()),
+        5; "Lvl2 - Sunday"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap()),
+        5; "Lvl2 - Monday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap()),
+        1; "Lvl2 - Monday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap()),
+        1; "Lvl2 - Tuesday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 22, 0, 0).unwrap()),
+        2; "Lvl2 - Tuesday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 19, 0, 0).unwrap()),
+        2; "Lvl2 - Wednesday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 22, 0, 0).unwrap()),
+        3; "Lvl2 - Wednesday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 19, 0, 0).unwrap()),
+        3; "Lvl2 - Thursday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 22, 0, 0).unwrap()),
+        4; "Lvl2 - Thursday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 17, 0, 0).unwrap()),
+        4; "Lvl2 - Friday before 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
+        5; "Lvl2 - Friday after 10"
+    )]
+    fn test_user_total_tokens(
+        user: User,
+        registration_window: RegistrationWindow<Tz>,
+        expected: u32,
+    ) {
+        let actual = user.total_tokens(Some(registration_window));
+        assert_eq!(actual, expected);
     }
 }

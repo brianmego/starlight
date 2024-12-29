@@ -3,21 +3,27 @@ use axum::extract::Path;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 
+use super::reservation::RegistrationWindow;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UserGetResponse {
     user: User,
     tokens_used: u32,
     total_tokens: u32,
+    now: String
 }
 
 impl UserGetResponse {
     async fn new(user: User) -> Self {
+        let registration_window = RegistrationWindow::default();
         let tokens_used = user.tokens_used().await;
-        let total_tokens = user.total_tokens();
+        let now = registration_window.now().format("%m-%d-%Y %H:%M").to_string();
+        let total_tokens = user.total_tokens(Some(registration_window));
         Self {
             user,
             tokens_used,
             total_tokens,
+            now
         }
     }
 }

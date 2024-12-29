@@ -90,13 +90,21 @@ impl ClockTime {
 }
 
 pub fn now() -> DateTime<Tz> {
-    Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap()
-    // let start_time = Utc::now();
+    let now = std::env::var("NOW");
+
+    match now {
+        Ok(d) => Chicago
+            .from_local_datetime(&NaiveDateTime::parse_from_str(&d, "%Y-%m-%d %H:%M:%S").unwrap())
+            .single()
+            .unwrap(),
+        Err(_) => Utc::now().with_timezone(&Chicago),
+    }
 }
+
 pub async fn handler_get() -> Json<Vec<ReservationResult>> {
     info!("GET /reservation");
     let registration_window = RegistrationWindow::new(now());
-    let start_time = SurrealDateTime::from(registration_window.start().to_utc());
+    let start_time = SurrealDateTime::from(registration_window.now().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
     dbg!(&registration_window);
@@ -141,7 +149,10 @@ pub async fn handler_post(
     dbg!(&reservation_id);
     let reservation_record = Reservation::get_by_id(&reservation_id).await.unwrap();
     let reservation_id = RecordId::from(("reservation", reservation_id));
-    if !reservation_record.is_reservable_by_user(&user_id, registration_window.next_week_start()).await {
+    if !reservation_record
+        .is_reservable_by_user(&user_id, registration_window.next_week_start())
+        .await
+    {
         println!("Not enough tokens");
         Err(StatusCode::PAYMENT_REQUIRED)?;
     };
@@ -206,13 +217,19 @@ pub async fn handler_delete_reservation(
 
 #[derive(Debug)]
 pub struct RegistrationWindow<Tz: TimeZone> {
+    now: DateTime<Tz>,
     start: DateTime<Tz>,
     end: DateTime<Tz>,
     next_week_start: DateTime<Tz>,
 }
 
+impl Default for RegistrationWindow<Tz> {
+    fn default() -> Self {
+        Self::new(now())
+    }
+}
 impl<Tz: TimeZone> RegistrationWindow<Tz> {
-    pub fn new(start: DateTime<Tz>) -> Self {
+    pub fn new(now: DateTime<Tz>) -> Self {
         // This is the most complicated logic on the site.
         // You can see up to two Friday's in the future.
         // The next week doesn't unlock until Monday at 10PM
@@ -224,8 +241,8 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
         // At 12PM the current week now has Friday-Friday.
         //
         // The unit tests validate this crazy logic
-        let days_to_add = match start.weekday() {
-            Weekday::Mon => match start.hour() < 22 {
+        let days_to_add = match now.weekday() {
+            Weekday::Mon => match now.hour() < 22 {
                 true => 5,
                 false => 12,
             },
@@ -236,27 +253,37 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
             Weekday::Sat => 7,
             Weekday::Sun => 6,
         };
-        let end = start.clone() + TimeDelta::days(days_to_add)
-            - TimeDelta::hours(start.hour().into())
-            - TimeDelta::minutes(start.minute().into())
-            - TimeDelta::seconds(start.second().into());
-        let next_week_start = match start.weekday() {
+        let start = now.clone()
+            - TimeDelta::days(12 - days_to_add)
+            - TimeDelta::hours(now.hour().into())
+            - TimeDelta::minutes(now.minute().into())
+            - TimeDelta::seconds(now.second().into());
+
+        let end = now.clone() + TimeDelta::days(days_to_add)
+            - TimeDelta::hours(now.hour().into())
+            - TimeDelta::minutes(now.minute().into())
+            - TimeDelta::seconds(now.second().into());
+        let next_week_start = match now.weekday() {
             Weekday::Tue | Weekday::Wed | Weekday::Thu => end.clone() - TimeDelta::days(7),
-            Weekday::Fri => match start.hour() < 12 {
+            Weekday::Fri => match now.hour() < 12 {
                 true => end.clone() - TimeDelta::days(7),
                 false => end.clone(),
             },
-            Weekday::Mon => match start.hour() < 22 {
+            Weekday::Mon => match now.hour() < 22 {
                 true => end.clone(),
                 false => end.clone() - TimeDelta::days(7),
             },
             Weekday::Sat | Weekday::Sun => end.clone(),
         };
         Self {
+            now,
             start,
             end,
             next_week_start,
         }
+    }
+    pub fn now(&self) -> DateTime<Tz> {
+        self.now.clone()
     }
     fn start(&self) -> DateTime<Tz> {
         self.start.clone()
@@ -284,21 +311,69 @@ mod tests {
         assert_eq!(actual, expected);
     }
 
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Saturday")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Sunday")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Monday before 10")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Monday after 10")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Tuesday")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 22, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Wednesday")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 23, 19, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Thursday")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 24, 11, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(); "Friday before noon")]
-    #[test_case(Chicago.with_ymd_and_hms(2025, 1, 24, 12, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(), Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(); "Friday after noon")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 13, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Saturday")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 13, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Sunday")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 13, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Monday before 10")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 20, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Monday after 10")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 20, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Tuesday")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 22, 19, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 20, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Wednesday")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 23, 19, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 20, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Thursday")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 24, 11, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 20, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 25, 0, 0, 0).unwrap();
+        "Friday before noon")]
+    #[test_case(
+        Chicago.with_ymd_and_hms(2025, 1, 24, 12, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 1, 20, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap(),
+        Chicago.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap();
+        "Friday after noon")]
     fn test_active_registration_window(
+        now: DateTime<Tz>,
         start_time: DateTime<Tz>,
         end_time: DateTime<Tz>,
         next_week_start: DateTime<Tz>,
     ) {
-        let actual = RegistrationWindow::new(start_time);
+        let actual = RegistrationWindow::new(now);
+        assert_eq!(actual.now(), now);
+        assert_eq!(actual.start(), start_time);
         assert_eq!(actual.end(), end_time);
         assert_eq!(actual.next_week_start(), next_week_start);
     }

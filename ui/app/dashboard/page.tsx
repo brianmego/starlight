@@ -14,11 +14,13 @@ function UserData() {
     const { data, error, isLoading } = useSWR(`http://0:1912/api/user/${parsed_jwt.ID}`, fetcher);
     const [remainingTokens, setRemainingTokens] = useState(0);
     const [totalTokens, setTotalTokens] = useState(0);
+    const [now, setNow] = useState(null);
 
     useEffect(() => {
         if (data) {
             setRemainingTokens(data.total_tokens - data.tokens_used);
             setTotalTokens(data.total_tokens);
+            setNow(data.now);
         }
     }, [data])
 
@@ -26,9 +28,11 @@ function UserData() {
     if (isLoading) return <p>Loading...</p>
     return (
         <>
-            <h2>Remaining Tokens: {remainingTokens}</h2>
+            <h2>Remaining Tokens (Next Week): {remainingTokens}</h2>
+            <h2>Used Tokens: {data.tokens_used}</h2>
             <h2>Total Tokens: {totalTokens}</h2>
-            <h2>Troop Type: {parsed_jwt.trooptype}</h2>
+            <h2>Troop Type: {data.user.trooptype}</h2>
+            <h2>Time: {now}</h2>
         </>
     )
 

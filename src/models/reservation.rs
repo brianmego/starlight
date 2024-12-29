@@ -32,7 +32,7 @@ impl Reservation {
             true => {
                 let user = User::get_by_id(user_id).await.unwrap();
                 let current_res_count = user.tokens_used().await;
-                match user.total_tokens() > current_res_count {
+                match user.total_tokens(None) > current_res_count {
                     true => true,
                     false => false,
                 }
