@@ -1,0 +1,14 @@
+[Unit]
+Description=Starlight Database
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+ExecStart=surreal start surrealkv://surreal.db
+Restart=on-abort
+WorkingDirectory=/home/ec2-user/starlight
+
+[Install]
+WantedBy=multi-user.target

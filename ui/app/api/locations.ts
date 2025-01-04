@@ -2,7 +2,7 @@
 import { Locations } from '@/app/lib/definitions';
 
 export async function getLocations(): Promise<Locations> {
-    const res = await fetch("http://localhost:1912/api/location", {
+    const res = await fetch(`${process.env.API_ROOT}/location`, {
         method: "GET",
         headers: {
             "content-type": "application/json"

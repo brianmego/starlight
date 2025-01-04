@@ -17,3 +17,6 @@ seed_db:
 deploy:
     cargo build --release
     scp -i ~/aws/MegoPersonal.pem target/release/starlight ec2-user@ec2-34-209-85-43.us-west-2.compute.amazonaws.com:~
+
+deploy_fe:
+    cd ui && pnpm run build

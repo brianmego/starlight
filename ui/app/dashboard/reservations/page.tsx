@@ -16,10 +16,14 @@ export default function Page() {
     } else {
         id = JSON.parse(atob(jwt.split('.')[1])).ID.split(':')[1]
     }
-    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`http://0:1912/api/reservation/${id}`, fetcher);
+    const [apiRoot, setApiRoot] = useState(undefined);
+    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`${apiRoot}/reservation/${id}`, fetcher);
     const [nextWeekReservations, setNextWeekReservations] = useState(Array<ReservationDataRow>);
     const [freeReservations, setFreeReservations] = useState(Array<ReservationDataRow>);
 
+    useEffect(() => {
+        setApiRoot(window.ENV.API_ROOT)
+    })
     useEffect(() => {
         if (data) {
             setFreeReservations(data.filter(x => x.next_week == false))
@@ -32,7 +36,7 @@ export default function Page() {
 
     async function deleteHandler(reservation_id: string) {
         console.log(reservation_id);
-        await fetch(`http://0:1912/api/reservation/${reservation_id}`, {
+        await fetch(`${window.ENV.API_ROOT}/reservation/${reservation_id}`, {
             method: "DELETE",
             headers: {
                 "authorization": `Bearer ${jwt}`
@@ -45,7 +49,7 @@ export default function Page() {
             }
         })
 
-        mutate(`http://0:1912/api/reservation/${id}`)
+        mutate(`${apiRoot}/reservation/${id}`)
     }
 
     return <>
