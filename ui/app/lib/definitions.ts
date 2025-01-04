@@ -10,32 +10,37 @@ export type CredentialsInputs = {
 
 export type ResLocation = {
     key: string;
-    name: string;
+    value: string;
 }
 export type ResDate = {
     key: string;
-    name: string;
-}
-export type ResDay = {
-    key: number;
-    name: string;
+    value: string;
 }
 export type ResTime = {
-    key: number
-    name: number
+    key: number;
+    value: string;
 }
 
 export type Locations = [ResLocation];
 
-export type LockedData = {
-    locations: [ResLocation],
-    days: [ResDay],
-    startTime: [ResTime]
-}
 
 export type AllSelections = {
     location: string;
     date: string;
     startTime: number;
     jwt?: string;
+}
+
+export type ReservationData = [ReservationDataRow];
+
+export type ReservationDataRow = {
+    reservation_id: string
+    date: string
+    day_of_week_id: number
+    day_of_week_name: string
+    location_id: string
+    location_name: string
+    start_time_id: number
+    start_time_name: string
+    next_week: boolean
 }

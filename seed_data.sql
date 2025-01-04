@@ -156,11 +156,6 @@ CREATE day_of_week:5 CONTENT {name: "Friday"};
 CREATE day_of_week:6 CONTENT {name: "Saturday"};
 CREATE day_of_week:7 CONTENT {name: "Sunday"};
 
-LET $username="Brian";
-LET $password="abc123";
-
-CREATE user SET username=$username, password=crypto::argon2::generate($password);
-
 DEFINE FUNCTION fn::day_of_week($date: datetime) {
 LET $day = time::wday($date);
 LET $name=

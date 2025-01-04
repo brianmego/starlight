@@ -1,5 +1,4 @@
 'use server';
-import { serialize } from 'cookie';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 

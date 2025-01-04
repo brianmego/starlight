@@ -1,10 +1,16 @@
-import NextAuth from 'next-auth';
+import NextAuth, { User } from 'next-auth';
 import { authConfig } from './auth.config';
 import Credentials from 'next-auth/providers/credentials';
 import { AuthenticatedUser, CredentialsInputs } from '@/app/lib/definitions';
 import { cookies } from 'next/headers'
 
-async function getUser(credentials): Promise<AuthenticatedUser | undefined> {
+declare module "next-auth" {
+    interface User {
+        jwt: string;
+        username: string;
+    }
+}
+async function getUser(credentials: CredentialsInputs): Promise<AuthenticatedUser> {
     const res = await fetch("http://0:1912/login", {
         method: "POST",
         body: JSON.stringify({
@@ -29,17 +35,16 @@ export const { auth, signIn, signOut } = NextAuth({
     ...authConfig,
     providers: [
         Credentials({
-            authorize: async (credentials: CredentialsInputs) => {
-                // async function login(formData: FormData) {
+            async authorize(credentials: any) {
                 'use server'
-                let user = await getUser(credentials);
-                console.log(`User: ${user.jwt}`);
-                cookies().set('jwt', user.jwt)
-                if (user) {
-                    return user;
-                } else {
-                    return null;
-                }
+                let authorized_user = await getUser(credentials);
+                console.log(`User: ${authorized_user.jwt}`);
+                cookies().set('jwt', authorized_user.jwt)
+                if (authorized_user) {
+                    const user: User = { jwt: "user", username: "username" };
+                    return user
+                } else
+                    throw new Error("Login failed");
             }
         })],
 });

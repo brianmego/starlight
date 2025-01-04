@@ -13,3 +13,7 @@ run_db:
 
 seed_db:
     surreal import --conn http://localhost:8000 --user root --pass root --ns scouts --db scouts seed_data.sql
+
+deploy:
+    cargo build --release
+    scp -i ~/aws/MegoPersonal.pem target/release/starlight ec2-user@ec2-34-209-85-43.us-west-2.compute.amazonaws.com:~

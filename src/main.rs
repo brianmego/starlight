@@ -37,12 +37,18 @@ async fn main() -> color_eyre::eyre::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let args = Args::parse();
 
+    let db_host = std::env::var("DB_HOST").unwrap_or("localhost:8000".into());
+    let db_namespace = std::env::var("DB_NAMESPACE").unwrap_or("scouts".into());
+    let db_database = std::env::var("DB_DATABASE").unwrap_or("scouts".into());
+    let db_user = std::env::var("DB_USER").unwrap_or("root".into());
+    let db_pwd = std::env::var("DB_PASS").unwrap_or("root".into());
+
     // Connect to the database
-    DB.connect::<Ws>("localhost:8000").await?;
-    DB.use_ns("scouts").use_db("scouts").await?;
+    DB.connect::<Ws>(db_host).await?;
+    DB.use_ns(db_namespace).use_db(db_database).await?;
     DB.signin(Root {
-        username: "root",
-        password: "root",
+        username: &db_user,
+        password: &db_pwd,
     })
     .await?;
 

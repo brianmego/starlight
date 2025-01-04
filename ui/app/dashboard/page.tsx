@@ -1,16 +1,19 @@
 'use client';
-import useSWR, { useSWRConfig } from 'swr';
-import React, { Key, useEffect, useState, useContext } from "react";
-import { AllSelections, LockedData, ResLocation, ResDate, ResDay, ResTime } from '../lib/definitions';
+import useSWR, { SWRResponse } from 'swr';
+import React, { useEffect, useState } from "react";
+import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
 import { Button, Listbox, ListboxItem, Spacer } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
-import { setSourceMapsEnabled } from 'node:process';
+
+const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
 function UserData() {
-    const jwt = getCookie('jwt')?.toString();
+    let jwt = getCookie('jwt')?.toString();
+    if (jwt === undefined) {
+        jwt = ""
+    }
     const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
-    const fetcher = (...args) => fetch(...args).then(res => res.json());
     const { data, error, isLoading } = useSWR(`http://0:1912/api/user/${parsed_jwt.ID}`, fetcher);
     const [remainingTokens, setRemainingTokens] = useState(0);
     const [totalTokens, setTotalTokens] = useState(0);
@@ -51,8 +54,7 @@ export default function Page() {
     const [nextWeekDates, setNextWeekDates] = useState<Array<ResDate>>([]);
     const [locations, setLocations] = useState<Array<ResLocation>>([]);
     const [startTimes, setStartTimes] = useState<Array<ResTime>>([]);
-    const fetcher = (...args) => fetch(...args).then(res => res.json());
-    const { data, error, isLoading } = useSWR(`http://0:1912/api/reservation`, fetcher);
+    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`http://0:1912/api/reservation`, fetcher);
 
     useEffect(() => {
         if (data) {
@@ -65,10 +67,10 @@ export default function Page() {
             let dates = [...new Map(filteredData.map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
             let locations = [...new Map(filteredData.map(x => [x.location_id, { key: x.location_id, value: x.location_name }])).values()];
             let times = [...new Map(filteredData.map(x => [x.start_time_id, { key: x.start_time_id, value: x.start_time_name }])).values()]
-            locations.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
-            this_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
-            next_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
-            times.sort((a, b) => { { return (a.key > b.key) - (a.key < b.key) } });
+            // locations.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
+            // this_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
+            // next_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
+            // times.sort((a, b) => { { return (a.key > b.key) - (a.key < b.key) } });
             setDates(dates);
             setThisWeekDates(this_week_dates);
             setNextWeekDates(next_week_dates);
@@ -93,28 +95,30 @@ export default function Page() {
             "startTime": startTimes[0].key,
             "jwt": jwt
         };
-        const reservation_id = data.filter(x => x.location_id == allSelections.location && x.start_time_id == allSelections.startTime && x.date == allSelections.date)[0].reservation_id;
+        if (data) {
+            const reservation_id = data.filter(x => x.location_id == allSelections.location && x.start_time_id == allSelections.startTime && x.date == allSelections.date)[0].reservation_id;
 
-        await fetch(`http://0:1912/api/reservation/${reservation_id}`, {
-            method: "POST",
-            headers: {
-                "authorization": `Bearer ${jwt}`
-            },
-        }).then(res => {
-            if (res.status == 401) {
-                alert("This session is no longer valid. Please log in again.")
+            await fetch(`http://0:1912/api/reservation/${reservation_id}`, {
+                method: "POST",
+                headers: {
+                    "authorization": `Bearer ${jwt}`
+                },
+            }).then(res => {
+                if (res.status == 401) {
+                    alert("This session is no longer valid. Please log in again.")
 
-            } else if (res.status == 402) {
-                alert("You do not have enough reservation tokens left at this time.")
-            } else if (res.status == 200) {
-                alert("Reserved!")
+                } else if (res.status == 402) {
+                    alert("You do not have enough reservation tokens left at this time.")
+                } else if (res.status == 200) {
+                    alert("Reserved!")
 
-                setFilteredDate(undefined);
-                setFilteredLocation(undefined);
-                setFilteredDay(undefined);
-                setFilteredTime(undefined);
-            }
-        })
+                    setFilteredDate(undefined);
+                    setFilteredLocation(undefined);
+                    setFilteredDay(undefined);
+                    setFilteredTime(undefined);
+                }
+            })
+        }
     }
 
 
@@ -139,20 +143,16 @@ export default function Page() {
     )
 }
 
-function ReserveButton({ clickHandler, isDisabled }) {
+function ReserveButton({ clickHandler, isDisabled }: any) {
     return (
         <Button color="primary" isDisabled={isDisabled} onPress={clickHandler}>Reserve</Button>
     )
 }
 
-function EndpointListbox({ label, setter, data }) {
+function EndpointListbox({ label, setter, data }: any) {
     const [selectedKeys, setSelectedKeys] = useState(new Set([]));
-    const selectedValue = React.useMemo(
-        () => Array.from(selectedKeys).join(", "),
-        [selectedKeys]
-    )
 
-    function selectItem(key) {
+    function selectItem(key: any) {
         if (key.size === 0) {
             setSelectedKeys(new Set([]));
             setter(null)
@@ -169,18 +169,11 @@ function EndpointListbox({ label, setter, data }) {
                 <Listbox
                     items={data}
                     aria-label={label}
-                    // variant="flat"
                     selectionMode="single"
                     selectedKeys={selectedKeys}
-                    // onSelectionChange={setSelectedKeys}
                     onSelectionChange={selectItem}
-                // onSelectionChange={(key) => {
-                //     setSelectedKeys(key);
-                //     // clickHandler(endpoint, key.currentKey)
-                // }
-                // }
                 >
-                    {(item) => (
+                    {(item: any) => (
                         <ListboxItem
                             key={item.key}
                         >
