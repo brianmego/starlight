@@ -4,7 +4,7 @@ declare global {
 declare global {
     namespace NodeJS {
         interface ProcessEnv {
-            API_ROOT: string;
+            NEXT_PUBLIC_API_ROOT: string;
             AUTH_SECRET: string;
             LOGIN_URL: string;
         }

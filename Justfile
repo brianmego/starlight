@@ -14,9 +14,24 @@ run_db:
 seed_db:
     surreal import --conn http://localhost:8000 --user root --pass root --ns scouts --db scouts seed_data.sql
 
-deploy:
+deploy_be: upload_deploy_script
     cargo build --release
-    scp -i ~/aws/MegoPersonal.pem target/release/starlight ec2-user@ec2-34-209-85-43.us-west-2.compute.amazonaws.com:~
+    scp target/release/starlight starlightcookies:~/starlight
 
-deploy_fe:
-    cd ui && pnpm run build
+deploy_fe: upload_deploy_script
+    cd ui
+    rm -rf .next
+    pnpm run build
+
+deploy_systemd_services: upload_deploy_script
+    mkdir -p dist
+    tar -Zcvf dist/starlight_services.tgz \
+        deploy/backend.service \
+        deploy/database.service \
+        deploy/starlight.nginx.conf
+    scp dist/starlight_services.tgz starlightcookies:~/starlight
+    ssh starlightcookies -t "sudo ~/starlight/deploy.sh"
+
+upload_deploy_script:
+    scp deploy/deploy.sh starlightcookies:~/starlight
+

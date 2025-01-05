@@ -11,6 +11,7 @@ declare module "next-auth" {
     }
 }
 async function getUser(credentials: CredentialsInputs): Promise<AuthenticatedUser> {
+    console.log(process.env.LOGIN_URL)
     const res = await fetch(process.env.LOGIN_URL, {
         method: "POST",
         body: JSON.stringify({

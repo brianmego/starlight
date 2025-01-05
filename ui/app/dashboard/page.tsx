@@ -14,7 +14,7 @@ function UserData() {
         jwt = ""
     }
     const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
-    const { data, error, isLoading } = useSWR(`${window.ENV.API_ROOT}/user/${parsed_jwt.ID}`, fetcher);
+    const { data, error, isLoading } = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/user/${parsed_jwt.ID}`, fetcher);
     const [remainingTokens, setRemainingTokens] = useState(0);
     const [totalTokens, setTotalTokens] = useState(0);
     const [now, setNow] = useState(null);
@@ -54,12 +54,8 @@ export default function Page() {
     const [nextWeekDates, setNextWeekDates] = useState<Array<ResDate>>([]);
     const [locations, setLocations] = useState<Array<ResLocation>>([]);
     const [startTimes, setStartTimes] = useState<Array<ResTime>>([]);
-    const [apiRoot, setApiRoot] = useState(undefined);
-    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`${apiRoot}/reservation`, fetcher);
+    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation`, fetcher);
 
-    useEffect(() => {
-        setApiRoot(window.ENV.API_ROOT)
-    })
 
     useEffect(() => {
         if (data) {
@@ -103,7 +99,7 @@ export default function Page() {
         if (data) {
             const reservation_id = data.filter(x => x.location_id == allSelections.location && x.start_time_id == allSelections.startTime && x.date == allSelections.date)[0].reservation_id;
 
-            await fetch(`${window.ENV.API_ROOT}/reservation/${reservation_id}`, {
+            await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${reservation_id}`, {
                 method: "POST",
                 headers: {
                     "authorization": `Bearer ${jwt}`

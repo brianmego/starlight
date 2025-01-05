@@ -7,6 +7,8 @@ Type=simple
 User=ec2-user
 Group=ec2-user
 ExecStart=surreal start surrealkv://surreal.db
+StandardOutput=append:/var/log/starlight/database.log
+StandardError=append:/var/log/starlight/database.log
 Restart=on-abort
 WorkingDirectory=/home/ec2-user/starlight
 

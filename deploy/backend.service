@@ -1,12 +1,15 @@
 [Unit]
 Description=Starlight Rust Backend
-After=network.target
+After=database.service
 
 [Service]
 Type=simple
 User=ec2-user
 Group=ec2-user
-ExecStart=/bin/sh -c 'exec /home/ec2-user/starlight/starlight >> /var/log/starlight.log 2>>/var/log/starlight.log'
+ExecStartPre=/bin/sleep 30
+ExecStart=/home/ec2-user/starlight/starlight
+StandardOutput=append:/var/log/starlight/backend.log
+StandardError=append:/var/log/starlight/backend.log
 Restart=on-abort
 WorkingDirectory=/home/ec2-user
 Environment=RUST_LOG=info

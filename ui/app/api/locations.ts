@@ -2,7 +2,7 @@
 import { Locations } from '@/app/lib/definitions';
 
 export async function getLocations(): Promise<Locations> {
-    const res = await fetch(`${process.env.API_ROOT}/location`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/location`, {
         method: "GET",
         headers: {
             "content-type": "application/json"

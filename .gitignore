@@ -3,3 +3,4 @@ target/
 nextjs-dashboard/
 surreal.db/
 local_sql/
+dist/
