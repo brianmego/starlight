@@ -33,6 +33,7 @@ pub const SET_RESERVATION_QUERY: &str = "
     UPDATE reservation
     SET reserved_by=$user
     WHERE id = $reservation_id
+      AND reserved_by == None
 ";
 
 pub const USER_TOKEN_USAGE_COUNT: &str = "

@@ -3,17 +3,19 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use surrealdb::RecordId;
 
-use crate::{
-    models::user::User,
-    DB,
-};
+use crate::{models::user::User, DB};
 
+pub enum UnreservableReason {
+    NotEnoughTokens,
+    AlreadyReserved(String),
+}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Reservation {
     day: DateTime<Utc>,
     duration: u8,
     location: RecordId,
     id: RecordId,
+    reserved_by: Option<RecordId>,
 }
 impl Reservation {
     pub async fn get_by_id(id: &str) -> Option<Self> {
@@ -26,18 +28,26 @@ impl Reservation {
         &self,
         user_id: &str,
         next_week_start: DateTime<Tz>,
-    ) -> bool {
-        let is_next_week = self.day() > next_week_start;
-        match is_next_week {
-            true => {
-                let user = User::get_by_id(user_id).await.unwrap();
-                let current_res_count = user.tokens_used().await;
-                match user.total_tokens(None) > current_res_count {
-                    true => true,
-                    false => false,
+    ) -> Result<(), UnreservableReason> {
+        match &self.reserved_by {
+            Some(id) => {
+                let key = id.key();
+                return Err(UnreservableReason::AlreadyReserved(key.to_string()));
+            }
+            None => {
+                let is_next_week = self.day() > next_week_start;
+                match is_next_week {
+                    true => {
+                        let user = User::get_by_id(user_id).await.unwrap();
+                        let current_res_count = user.tokens_used().await;
+                        match user.total_tokens(None) > current_res_count {
+                            true => Ok(()),
+                            false => Err(UnreservableReason::NotEnoughTokens),
+                        }
+                    }
+                    false => Ok(()),
                 }
             }
-            false => true,
         }
     }
 }

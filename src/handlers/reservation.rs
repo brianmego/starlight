@@ -1,5 +1,5 @@
 use crate::handlers::login::Claims;
-use crate::models::reservation::Reservation;
+use crate::models::reservation::{Reservation, UnreservableReason};
 use crate::{queries, DB};
 use axum::extract::Path;
 use axum::http::{header::HeaderMap, StatusCode};
@@ -102,7 +102,7 @@ pub fn now() -> DateTime<Tz> {
 }
 
 pub async fn handler_get() -> Json<Vec<ReservationResult>> {
-    info!("GET /reservation");
+    info!("GET /api/reservation");
     let registration_window = RegistrationWindow::new(now());
     let start_time = SurrealDateTime::from(registration_window.now().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());
@@ -127,15 +127,15 @@ pub async fn handler_post(
     headers: HeaderMap,
     Path(reservation_id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    info!("POST /reservation/{}", reservation_id);
+    info!("POST /api/reservation/{}", reservation_id);
     let auth_header = headers.get("Authorization");
     let jwt = auth_header
         .unwrap()
         .to_str()
-        .unwrap()
+        .map_err(|_| StatusCode::UNAUTHORIZED)?
         .split("Bearer ")
         .last()
-        .unwrap();
+        .ok_or_else(|| StatusCode::UNAUTHORIZED)?;
     let decoded_jwt = jsonwebtoken::decode::<Claims>(
         &jwt,
         &DecodingKey::from_secret("secret".as_ref()),
@@ -149,15 +149,24 @@ pub async fn handler_post(
     dbg!(&reservation_id);
     let reservation_record = Reservation::get_by_id(&reservation_id).await.unwrap();
     let reservation_id = RecordId::from(("reservation", reservation_id));
-    if !reservation_record
+    match reservation_record
         .is_reservable_by_user(&user_id, registration_window.next_week_start())
         .await
     {
-        println!("Not enough tokens");
-        Err(StatusCode::PAYMENT_REQUIRED)?;
-    };
+        Ok(_) => {}
+        Err(err) => match err {
+            UnreservableReason::NotEnoughTokens => {
+                println!("Not enough tokens");
+                Err(StatusCode::PAYMENT_REQUIRED)?;
+            }
+            UnreservableReason::AlreadyReserved(uid) => {
+                println!("Already reserved by user: {}", uid);
+                Err(StatusCode::CONFLICT)?;
+            }
+        },
+    }
+
     let user_record = RecordId::from(user_id.split_once(':').unwrap());
-    dbg!(reservation_record);
     DB.query(queries::SET_RESERVATION_QUERY)
         .bind(("reservation_id", reservation_id))
         .bind(("user", user_record))
@@ -169,7 +178,7 @@ pub async fn handler_post(
 pub async fn handler_get_user_reservations(
     Path(user_id): Path<String>,
 ) -> Json<Vec<ReservationResult>> {
-    info!("/reservation/{}", user_id);
+    info!("/api/reservation/{}", user_id);
     let user_record = RecordId::from(("user", &user_id));
     let registration_window = RegistrationWindow::new(now());
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
