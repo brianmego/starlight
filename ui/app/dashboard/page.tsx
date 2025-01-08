@@ -1,5 +1,5 @@
 'use client';
-import useSWR, { SWRResponse } from 'swr';
+import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import React, { useEffect, useState } from "react";
 import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
 import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer, useDisclosure } from "@nextui-org/react";
@@ -41,6 +41,7 @@ function UserData() {
 
 }
 export default function Page() {
+    const { mutate } = useSWRConfig()
     const jwt = getCookie('jwt')?.toString();
 
     const [toggleThisWeekReset, setToggleThisWeekReset] = useState(false);
@@ -142,6 +143,7 @@ export default function Page() {
                     onOpen();
                     setModalHeader("Error")
                     setModalText("Failure! Looks like someone got to this one right before you!")
+                    mutate(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation`)
                     resetFilters()
                 } else if (res.status == 200) {
                     onOpen();
