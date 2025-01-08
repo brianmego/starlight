@@ -19,9 +19,12 @@ deploy_be: upload_deploy_script
     scp target/release/starlight starlightcookies:~/starlight
 
 deploy_fe: upload_deploy_script
-    cd ui
-    rm -rf .next
-    pnpm run build
+    cd ui && \
+    rm -rf .next && \
+    pnpm run build && \
+    rm -f starlight_js.tar starlight_js.tar.xz && \
+    tar --create --file starlight_js.tar .next && \
+    xz -f starlight_js.tar
 
 deploy_systemd_services: upload_deploy_script
     mkdir -p dist

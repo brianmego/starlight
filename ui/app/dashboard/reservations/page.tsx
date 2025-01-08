@@ -91,7 +91,9 @@ export default function Page() {
                     )}
                 </Tab>
             </Tabs>
-            Don't forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://www.google.com">Google Form</Link>
+            <p>
+                Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://www.google.com">Google Form</Link>
+            </p>
         </div>
 
     </>;

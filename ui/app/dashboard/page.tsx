@@ -52,7 +52,7 @@ export default function Page() {
     const [filteredDay, setFilteredDay] = useState(undefined);
     const [filteredTime, setFilteredTime] = useState(undefined);
     const [isReservable, setIsReservable] = useState(false);
-    const {isOpen, onOpen, onOpenChange} = useDisclosure();
+    const { isOpen, onOpen, onOpenChange } = useDisclosure();
     const [modalText, setModalText] = useState("");
     const [modalHeader, setModalHeader] = useState("");
 
@@ -75,10 +75,10 @@ export default function Page() {
             let dates = [...new Map(filteredData.map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
             let locations = [...new Map(filteredData.map(x => [x.location_id, { key: x.location_id, value: x.location_name }])).values()];
             let times = [...new Map(filteredData.map(x => [x.start_time_id, { key: x.start_time_id, value: x.start_time_name }])).values()]
-            // locations.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
-            // this_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
-            // next_week_dates.sort((a, b) => { { return (a.value > b.value) - (a.value < b.value) } });
-            // times.sort((a, b) => { { return (a.key > b.key) - (a.key < b.key) } });
+            locations.sort((a, b) => sortThings(a.value, b.value));
+            this_week_dates.sort((a, b) => sortThings(a.value, b.value));
+            next_week_dates.sort((a, b) => sortThings(a.value, b.value));
+            times.sort((a, b) => sortThings(a.key, b.key));
             setDates(dates);
             setThisWeekDates(this_week_dates);
             setNextWeekDates(next_week_dates);
@@ -87,6 +87,12 @@ export default function Page() {
         }
     }, [data, filteredDate, filteredLocation, filteredDay, filteredTime]);
 
+
+    function sortThings(a: any, b: any): any {
+        let left: any = a > b;
+        let right: any = a < b;
+        return left - right
+    }
     useEffect(() => {
         if (dates.length == 1 && locations.length == 1 && startTimes.length == 1) {
             setIsReservable(true);
@@ -203,7 +209,7 @@ function EndpointListbox({ label, toggleReset, setToggleReset, setter, data }: a
             setSelectedKeys(new Set([]));
             setToggleReset(false)
         }
-    }, [toggleReset])
+    }, [toggleReset, setToggleReset])
 
 
     function selectItem(key: any) {
