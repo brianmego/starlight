@@ -2,7 +2,7 @@
 import useSWR, { SWRResponse } from 'swr';
 import React, { useEffect, useState } from "react";
 import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
-import { Button, Listbox, ListboxItem, Spacer } from "@nextui-org/react";
+import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer, useDisclosure } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
 
@@ -43,11 +43,18 @@ function UserData() {
 export default function Page() {
     const jwt = getCookie('jwt')?.toString();
 
+    const [toggleThisWeekReset, setToggleThisWeekReset] = useState(false);
+    const [toggleNextWeekReset, setToggleNextWeekReset] = useState(false);
+    const [toggleLocationsReset, setToggleLocationsReset] = useState(false);
+    const [toggleTimesReset, setToggleTimesReset] = useState(false);
     const [filteredDate, setFilteredDate] = useState(undefined);
     const [filteredLocation, setFilteredLocation] = useState(undefined);
     const [filteredDay, setFilteredDay] = useState(undefined);
     const [filteredTime, setFilteredTime] = useState(undefined);
     const [isReservable, setIsReservable] = useState(false);
+    const {isOpen, onOpen, onOpenChange} = useDisclosure();
+    const [modalText, setModalText] = useState("");
+    const [modalHeader, setModalHeader] = useState("");
 
     const [dates, setDates] = useState<Array<ResDate>>([]);
     const [thisWeekDates, setThisWeekDates] = useState<Array<ResDate>>([]);
@@ -89,6 +96,17 @@ export default function Page() {
     }, [dates, locations, startTimes])
 
 
+    function resetFilters() {
+        setFilteredDate(undefined);
+        setFilteredLocation(undefined);
+        setFilteredDay(undefined);
+        setFilteredTime(undefined);
+        setToggleThisWeekReset(true);
+        setToggleNextWeekReset(true);
+        setToggleLocationsReset(true);
+        setToggleTimesReset(true);
+    }
+
     async function handleReserve() {
         const allSelections: AllSelections = {
             "location": locations[0].key,
@@ -106,17 +124,25 @@ export default function Page() {
                 },
             }).then(res => {
                 if (res.status == 401) {
-                    alert("This session is no longer valid. Please log in again.")
-
+                    onOpen();
+                    setModalHeader("Error")
+                    setModalText("This session is no longer valid. Please log in again.")
                 } else if (res.status == 402) {
-                    alert("You do not have enough reservation tokens left at this time.")
+                    onOpen();
+                    setModalHeader("Error")
+                    setModalText("You do not have enough reservation tokens left at this time.")
+                    resetFilters()
+                } else if (res.status == 409) {
+                    onOpen();
+                    setModalHeader("Error")
+                    setModalText("Failure! Looks like someone got to this one right before you!")
+                    resetFilters()
                 } else if (res.status == 200) {
-                    alert("Reserved!")
+                    onOpen();
+                    setModalHeader("Success")
+                    setModalText("Reserved!")
 
-                    setFilteredDate(undefined);
-                    setFilteredLocation(undefined);
-                    setFilteredDay(undefined);
-                    setFilteredTime(undefined);
+                    resetFilters()
                 }
             })
         }
@@ -130,13 +156,32 @@ export default function Page() {
         <>
             <h1><b>Dashboard Page</b></h1>
             <UserData />
+            <Modal isOpen={isOpen} onOpenChange={onOpenChange} backdrop="blur">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader className="flex flex-col gap-1">{modalHeader}</ModalHeader>
+                            <ModalBody>
+                                <p>
+                                    {modalText}
+                                </p>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button color="primary" onPress={onClose}>
+                                    Ok
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
             <div className="flex gap-2">
                 <div >
-                    <EndpointListbox label="This Week" setter={setFilteredDate} data={thisWeekDates} />
-                    <EndpointListbox label="Next Week" setter={setFilteredDate} data={nextWeekDates} />
+                    <EndpointListbox label="This Week" toggleReset={toggleThisWeekReset} setToggleReset={setToggleThisWeekReset} setter={setFilteredDate} data={thisWeekDates} />
+                    <EndpointListbox label="Next Week" toggleReset={toggleNextWeekReset} setToggleReset={setToggleNextWeekReset} setter={setFilteredDate} data={nextWeekDates} />
                 </div>
-                <EndpointListbox label="Locations" setter={setFilteredLocation} data={locations} />
-                <EndpointListbox label="Time" setter={setFilteredTime} data={startTimes} />
+                <EndpointListbox label="Locations" toggleReset={toggleLocationsReset} setToggleReset={setToggleLocationsReset} currentFilter={filteredDate} setter={setFilteredLocation} data={locations} />
+                <EndpointListbox label="Time" toggleReset={toggleTimesReset} setToggleReset={setToggleTimesReset} currentFilter={filteredDate} setter={setFilteredTime} data={startTimes} />
             </div>
             <Spacer y={4} />
             <ReserveButton clickHandler={handleReserve} isDisabled={!isReservable} />
@@ -150,8 +195,16 @@ function ReserveButton({ clickHandler, isDisabled }: any) {
     )
 }
 
-function EndpointListbox({ label, setter, data }: any) {
+function EndpointListbox({ label, toggleReset, setToggleReset, setter, data }: any) {
     const [selectedKeys, setSelectedKeys] = useState(new Set([]));
+
+    useEffect(() => {
+        if (toggleReset === true) {
+            setSelectedKeys(new Set([]));
+            setToggleReset(false)
+        }
+    }, [toggleReset])
+
 
     function selectItem(key: any) {
         if (key.size === 0) {

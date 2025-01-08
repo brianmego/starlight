@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import { getCookie } from 'cookies-next'
-import { Button, Card, CardHeader, Divider, Tabs, Tab } from "@nextui-org/react";
+import { Button, Card, CardHeader, Divider, Link, Tabs, Tab } from "@nextui-org/react";
 import { ReservationData, ReservationDataRow } from '@/app/lib/definitions';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
@@ -91,6 +91,7 @@ export default function Page() {
                     )}
                 </Tab>
             </Tabs>
+            Don't forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://www.google.com">Google Form</Link>
         </div>
 
     </>;
