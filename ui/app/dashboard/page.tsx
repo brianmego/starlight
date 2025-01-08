@@ -2,7 +2,7 @@
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import React, { useEffect, useState } from "react";
 import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
-import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer, useDisclosure } from "@nextui-org/react";
+import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Spacer, useDisclosure } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
 
@@ -29,6 +29,21 @@ function UserData() {
 
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
+    return (
+    <Popover placement="right">
+      <PopoverTrigger>
+        <Button>Token Data</Button>
+      </PopoverTrigger>
+      <PopoverContent>
+        <div className="px-1 py-2">
+          <div className="text-small font-bold">Your troop size grants you a certain number of tokens for next week&apos;s booths</div>
+          <div className="text-small">Remaining Tokens (Next Week): {remainingTokens}</div>
+          <div className="text-tiny">Used Tokens: {data.tokens_used}</div>
+          <div className="text-tiny">Total Tokens: {totalTokens}</div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
     return (
         <>
             <h2>Remaining Tokens (Next Week): {remainingTokens}</h2>
@@ -164,6 +179,7 @@ export default function Page() {
         <>
             <h1><b>Dashboard Page</b></h1>
             <UserData />
+            <Spacer y={4} />
             <Modal isOpen={isOpen} onOpenChange={onOpenChange} backdrop="blur">
                 <ModalContent>
                     {(onClose) => (
