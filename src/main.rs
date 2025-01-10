@@ -85,8 +85,6 @@ async fn main() -> color_eyre::eyre::Result<()> {
         .route(
             "/api/location",
             get(handlers::location::handler_get)
-                .post(handlers::location::handler_post)
-                .delete(handlers::location::handler_delete),
         )
         .route("/api/reservation", get(handlers::reservation::handler_get))
         .route(

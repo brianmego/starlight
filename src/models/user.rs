@@ -11,8 +11,9 @@ use crate::{
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum TroopType {
-    Level1,
-    Level2,
+    Level1, // M, W-F tokens
+    Level2, // M-F tokens
+    Level3, // infinite tokens
 }
 impl From<RecordId> for TroopType {
     fn from(value: RecordId) -> Self {
@@ -20,8 +21,10 @@ impl From<RecordId> for TroopType {
             TroopType::Level1
         } else if value.key().to_string() == "level2" {
             TroopType::Level2
+        } else if value.key().to_string() == "level3" {
+            TroopType::Level3
         } else {
-            unreachable!("Only 2 troop types in the DB")
+            unreachable!("Only 3 troop types in the DB")
         }
     }
 }
@@ -113,6 +116,7 @@ impl User {
                     chrono::Weekday::Sun => 0,
                 },
             },
+            TroopType::Level3 => 99, // 99 problems, but a booth ain't one
         }
     }
 }
@@ -258,6 +262,11 @@ mod tests {
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
         5; "Lvl2 - Friday after 10"
+    )]
+    #[test_case(
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level3, "Name"),
+        RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
+        99; "Lvl3 - Always 99"
     )]
     fn test_user_total_tokens(
         user: User,

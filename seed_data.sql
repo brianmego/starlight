@@ -2,6 +2,8 @@
 DEFINE TABLE location SCHEMAFULL
     PERMISSIONS FOR select WHERE $access="user";
 DEFINE FIELD name ON location TYPE string;
+DEFINE FIELD address ON location TYPE string;
+DEFINE FIELD notes ON location TYPE string;
 DEFINE INDEX name ON location FIELDS name UNIQUE;
 
 --DayOfWeek
@@ -40,6 +42,7 @@ DEFINE INDEX name ON trooptype FIELDS name UNIQUE:
 -------Data-------
 CREATE trooptype:level1 SET name="Level1";
 CREATE trooptype:level2 SET name="Level2";
+CREATE trooptype:level3 SET name="Level3";
 
 
 CREATE location:chuys SET name = "Chuy's";
