@@ -16,8 +16,9 @@ seed_db:
 
 deploy_be: upload_deploy_script
     cargo build --release
+    ssh starlightcookies -t "sudo systemctl stop backend"
     scp target/release/starlight starlightcookies:~/starlight
-    ssh starlightcookies -t "sudo systemctl restart backend"
+    ssh starlightcookies -t "sudo systemctl start backend"
 
 deploy_fe: upload_deploy_script
     cd ui && \
@@ -25,9 +26,9 @@ deploy_fe: upload_deploy_script
     pnpm run build && \
     rm -f starlight_js.tar starlight_js.tar.xz && \
     tar --create --file starlight_js.tar .next && \
-    xz -f starlight_js.tar
-    scp starlight_js.tar.xz starlightcookies:~/frontend/starlight/ui
-    ssh starlightcookies -t "pm2 restart starlight"
+    xz -f starlight_js.tar && \
+    scp starlight_js.tar.xz starlightcookies:~/frontend/starlight/ui && \
+    ssh starlightcookies -t "rm ~/frontend/starlight/ui && cd ~/frontend/starlight/ui && tar xvf starlight_js.tar.xz && pm restart starlight"
 
 deploy_systemd_services: upload_deploy_script
     mkdir -p dist

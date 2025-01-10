@@ -239,6 +239,7 @@ pub async fn handler_delete_reservation(
 #[derive(Debug)]
 pub struct RegistrationWindow<Tz: TimeZone> {
     now: DateTime<Tz>,
+    start: DateTime<Tz>,
     end: DateTime<Tz>,
     next_week_start: DateTime<Tz>,
 }
@@ -269,6 +270,12 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
             Weekday::Sun => 6,
         };
 
+        let start = now.clone()
+            - TimeDelta::days(12 - days_to_add)
+            - TimeDelta::hours(now.hour().into())
+            - TimeDelta::minutes(now.minute().into())
+            - TimeDelta::seconds(now.second().into());
+
         let end = now.clone() + TimeDelta::days(days_to_add)
             - TimeDelta::hours(now.hour().into())
             - TimeDelta::minutes(now.minute().into())
@@ -287,19 +294,28 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
         };
         Self {
             now,
+            start,
             end,
             next_week_start,
         }
     }
+
     pub fn now(&self) -> DateTime<Tz> {
         self.now.clone()
     }
+
     fn end(&self) -> DateTime<Tz> {
         self.end.clone()
     }
+
+    fn start(&self) -> DateTime<Tz> {
+        self.start.clone()
+    }
+
     pub fn next_week_start(&self) -> DateTime<Tz> {
         self.next_week_start.clone()
     }
+
     pub fn time_until_next_unlock(&self) -> i64 {
         let now = self.now();
         let time_until = if now.hour() < 12 {

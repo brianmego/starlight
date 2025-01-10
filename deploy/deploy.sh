@@ -17,6 +17,8 @@ cp -v deploy/backend.service /etc/systemd/system/backend.service
 cp -v deploy/database.service /etc/systemd/system/database.service
 cp -v deploy/starlight.nginx.conf /etc/nginx/conf.d/starlight.nginx.conf
 systemctl daemon-reload
-systemctl start database.service backend.service
+systemctl start database.service
+sleep 30
+systemctl start backend.service
 runuser -u ec2-user -- /home/ec2-user/.local/share/pnpm/pm2 restart starlight
 systemctl reload nginx

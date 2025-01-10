@@ -66,7 +66,7 @@ impl User {
     pub fn total_tokens(&self, window: &RegistrationWindow<Tz>) -> u32 {
         // Level1
         // M T W R F S U
-        // 1 0 1 0 1 0 0
+        // 1 0 1 1 1 0 0
 
         // Level2
         // M T W R F S U
@@ -75,33 +75,33 @@ impl User {
         match self.trooptype {
             TroopType::Level1 => match window.now().hour() < 22 {
                 true => match window.now().weekday() {
-                    chrono::Weekday::Mon => 3,
+                    chrono::Weekday::Mon => 0,
                     chrono::Weekday::Tue => 1,
                     chrono::Weekday::Wed => 1,
                     chrono::Weekday::Thu => 2,
-                    chrono::Weekday::Fri => 2,
-                    chrono::Weekday::Sat => 3,
-                    chrono::Weekday::Sun => 3,
+                    chrono::Weekday::Fri => 3,
+                    chrono::Weekday::Sat => 0,
+                    chrono::Weekday::Sun => 0,
                 },
                 false => match window.now().weekday() {
                     chrono::Weekday::Mon => 1,
                     chrono::Weekday::Tue => 1,
                     chrono::Weekday::Wed => 2,
-                    chrono::Weekday::Thu => 2,
-                    chrono::Weekday::Fri => 3,
-                    chrono::Weekday::Sat => 3,
-                    chrono::Weekday::Sun => 3,
+                    chrono::Weekday::Thu => 3,
+                    chrono::Weekday::Fri => 0,
+                    chrono::Weekday::Sat => 0,
+                    chrono::Weekday::Sun => 0,
                 },
             },
             TroopType::Level2 => match window.now().hour() < 22 {
                 true => match window.now().weekday() {
-                    chrono::Weekday::Mon => 5,
+                    chrono::Weekday::Mon => 0,
                     chrono::Weekday::Tue => 1,
                     chrono::Weekday::Wed => 2,
                     chrono::Weekday::Thu => 3,
                     chrono::Weekday::Fri => 4,
-                    chrono::Weekday::Sat => 5,
-                    chrono::Weekday::Sun => 5,
+                    chrono::Weekday::Sat => 0,
+                    chrono::Weekday::Sun => 0,
                 },
                 false => match window.now().weekday() {
                     chrono::Weekday::Mon => 1,
@@ -109,8 +109,8 @@ impl User {
                     chrono::Weekday::Wed => 3,
                     chrono::Weekday::Thu => 4,
                     chrono::Weekday::Fri => 5,
-                    chrono::Weekday::Sat => 5,
-                    chrono::Weekday::Sun => 5,
+                    chrono::Weekday::Sat => 0,
+                    chrono::Weekday::Sun => 0,
                 },
             },
         }
@@ -142,17 +142,17 @@ mod tests {
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap()),
-        3; "Lvl1 - Saturday"
+        0; "Lvl1 - Saturday"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap()),
-        3; "Lvl1 - Sunday"
+        0; "Lvl1 - Sunday"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap()),
-        3; "Lvl1 - Monday before 10"
+        0; "Lvl1 - Monday before 10"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
@@ -187,32 +187,32 @@ mod tests {
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 22, 0, 0).unwrap()),
-        2; "Lvl1 - Thursday after 10"
+        3; "Lvl1 - Thursday after 10"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 17, 0, 0).unwrap()),
-        2; "Lvl1 - Friday before 10"
+        3; "Lvl1 - Friday before 10"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
-        3; "Lvl1 - Friday after 10"
+        0; "Lvl1 - Friday after 10"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap()),
-        5; "Lvl2 - Saturday"
+        0; "Lvl2 - Saturday"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap()),
-        5; "Lvl2 - Sunday"
+        0; "Lvl2 - Sunday"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap()),
-        5; "Lvl2 - Monday before 10"
+        0; "Lvl2 - Monday before 10"
     )]
     #[test_case(
         User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
@@ -264,7 +264,7 @@ mod tests {
         registration_window: RegistrationWindow<Tz>,
         expected: u32,
     ) {
-        let actual = user.total_tokens(registration_window);
+        let actual = user.total_tokens(&registration_window);
         assert_eq!(actual, expected);
     }
 }

@@ -6,7 +6,6 @@ After=database.service
 Type=simple
 User=ec2-user
 Group=ec2-user
-ExecStartPre=/bin/sleep 30
 ExecStart=/home/ec2-user/starlight/starlight
 StandardOutput=append:/var/log/starlight/backend.log
 StandardError=append:/var/log/starlight/backend.log

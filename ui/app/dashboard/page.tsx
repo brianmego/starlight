@@ -73,24 +73,26 @@ export default function Page() {
 
     useEffect(() => {
         if (data) {
-            let filteredData = filteredDay ? data.reservations.filter(x => x.day_of_week_id == filteredDay) : data.reservations;
-            filteredData = filteredDate ? filteredData.filter(x => x.date == filteredDate) : filteredData;
-            filteredData = filteredLocation ? filteredData.filter(x => x.location_id == filteredLocation) : filteredData;
-            filteredData = filteredTime ? filteredData.filter(x => x.start_time_id == filteredTime) : filteredData;
-            let this_week_dates = [...new Map(filteredData.filter(x => x.next_week === false).map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
-            let next_week_dates = [...new Map(filteredData.filter(x => x.next_week === true).map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
-            let dates = [...new Map(filteredData.map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
-            let locations = [...new Map(filteredData.map(x => [x.location_id, { key: x.location_id, value: x.location_name }])).values()];
-            let times = [...new Map(filteredData.map(x => [x.start_time_id, { key: x.start_time_id, value: x.start_time_name }])).values()]
-            locations.sort((a, b) => sortThings(a.value, b.value));
-            this_week_dates.sort((a, b) => sortThings(a.value, b.value));
-            next_week_dates.sort((a, b) => sortThings(a.value, b.value));
-            times.sort((a, b) => sortThings(a.key, b.key));
-            setDates(dates);
-            setThisWeekDates(this_week_dates);
-            setNextWeekDates(next_week_dates);
-            setLocations(locations);
-            setStartTimes(times)
+            if (data.reservations) {
+                let filteredData = filteredDay ? data.reservations.filter(x => x.day_of_week_id == filteredDay) : data.reservations;
+                filteredData = filteredDate ? filteredData.filter(x => x.date == filteredDate) : filteredData;
+                filteredData = filteredLocation ? filteredData.filter(x => x.location_id == filteredLocation) : filteredData;
+                filteredData = filteredTime ? filteredData.filter(x => x.start_time_id == filteredTime) : filteredData;
+                let this_week_dates = [...new Map(filteredData.filter(x => x.next_week === false).map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
+                let next_week_dates = [...new Map(filteredData.filter(x => x.next_week === true).map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
+                let dates = [...new Map(filteredData.map(x => [x.date, { key: x.date, value: `${x.date} (${x.day_of_week_name})` }])).values()];
+                let locations = [...new Map(filteredData.map(x => [x.location_id, { key: x.location_id, value: x.location_name }])).values()];
+                let times = [...new Map(filteredData.map(x => [x.start_time_id, { key: x.start_time_id, value: x.start_time_name }])).values()]
+                locations.sort((a, b) => sortThings(a.value, b.value));
+                this_week_dates.sort((a, b) => sortThings(a.value, b.value));
+                next_week_dates.sort((a, b) => sortThings(a.value, b.value));
+                times.sort((a, b) => sortThings(a.key, b.key));
+                setDates(dates);
+                setThisWeekDates(this_week_dates);
+                setNextWeekDates(next_week_dates);
+                setLocations(locations);
+                setStartTimes(times)
+            }
         }
     }, [data, filteredDate, filteredLocation, filteredDay, filteredTime]);
 

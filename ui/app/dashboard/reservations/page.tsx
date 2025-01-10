@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import { getCookie } from 'cookies-next'
 import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@nextui-org/react";
-import { ReservationData, ReservationDataRow } from '@/app/lib/definitions';
+import { UserReservationData, ReservationDataRow } from '@/app/lib/definitions';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
@@ -20,7 +20,7 @@ export default function Page() {
     } else {
         id = JSON.parse(atob(jwt.split('.')[1])).ID.split(':')[1]
     }
-    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${id}`, fetcher);
+    const { data, error, isLoading }: SWRResponse<UserReservationData, boolean, boolean> = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${id}`, fetcher);
     const [nextWeekReservations, setNextWeekReservations] = useState(Array<ReservationDataRow>);
     const [freeReservations, setFreeReservations] = useState(Array<ReservationDataRow>);
 

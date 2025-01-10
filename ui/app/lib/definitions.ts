@@ -47,3 +47,5 @@ export type ReservationDataRow = {
     start_time_name: string
     next_week: boolean
 }
+
+export type UserReservationData = [ReservationDataRow];
