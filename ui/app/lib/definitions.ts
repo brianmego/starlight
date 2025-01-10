@@ -43,6 +43,8 @@ export type ReservationDataRow = {
     day_of_week_name: string
     location_id: string
     location_name: string
+    location_address: string
+    location_notes?: string
     start_time_id: number
     start_time_name: string
     next_week: boolean

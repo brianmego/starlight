@@ -28,7 +28,7 @@ deploy_fe: upload_deploy_script
     tar --create --file starlight_js.tar .next && \
     xz -f starlight_js.tar && \
     scp starlight_js.tar.xz starlightcookies:~/frontend/starlight/ui && \
-    ssh starlightcookies -t "rm ~/frontend/starlight/ui && cd ~/frontend/starlight/ui && tar xvf starlight_js.tar.xz && pm restart starlight"
+    ssh starlightcookies -t "rm -rf ~/frontend/starlight/ui/.next && cd ~/frontend/starlight/ui && tar xvf starlight_js.tar.xz && pm2 restart starlight"
 
 deploy_systemd_services: upload_deploy_script
     mkdir -p dist

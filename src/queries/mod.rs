@@ -6,6 +6,8 @@ pub const AVAILABLE_RESERVATIONS_QUERY: &str = "
         fn::day_of_week(day - 6h).name AS day_of_week_name,
         location AS location_id,
         location.name AS location_name,
+        location.address AS location_address,
+        location.notes AS location_notes,
         time::hour(day - 6h) AS start_time,
         day > $next_week_start as next_week
     FROM reservation
@@ -22,6 +24,8 @@ pub const USER_RESERVATION_QUERY: &str = "
         fn::day_of_week(day - 6h).name AS day_of_week_name,
         location AS location_id,
         location.name AS location_name,
+        location.address AS location_address,
+        location.notes AS location_notes,
         time::hour(day - 6h) AS start_time,
         day > $next_week_start as next_week
     FROM reservation

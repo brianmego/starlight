@@ -37,7 +37,7 @@ function UserData() {
                 <div className="px-1 py-2">
                     <div className="text-small font-bold">Your troop size grants you a certain number of booth picks for next week&apos;s booths</div>
                     <div className="text-small">Remaining Booth Picks (Next Week): {remainingTokens}</div>
-                    <div className="text-tiny">Used Booth Picks: {data.tokens_used}</div>
+                    <div className="text-tiny">Used Booth Picks: {data?.tokens_used}</div>
                     <div className="text-tiny">Total Booth Picks: {totalTokens}</div>
                     <div className="text-tiny">New data unlocks at Noon and 10PM each day (page will auto refresh)</div>
                 </div>
