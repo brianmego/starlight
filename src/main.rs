@@ -2,6 +2,8 @@ mod error;
 mod handlers;
 mod models;
 mod queries;
+use chrono::{prelude::*, TimeZone};
+use chrono_tz::America::Chicago;
 use env_logger::Env;
 use log::info;
 use once_cell::sync::Lazy;
@@ -31,6 +33,30 @@ struct Args {
     port: u16,
 }
 
+#[derive(Clone)]
+pub struct AppState {
+    time_offset: i64,
+}
+
+impl AppState {
+    pub fn new() -> Self {
+        let now = std::env::var("NOW");
+        let time_offset = match now {
+            Ok(d) => {
+                let desired_now = Chicago
+                    .from_local_datetime(
+                        &NaiveDateTime::parse_from_str(&d, "%Y-%m-%d %H:%M:%S").unwrap(),
+                    )
+                    .single()
+                    .unwrap();
+                (desired_now - Utc::now().with_timezone(&Chicago)).num_seconds()
+            }
+            Err(_) => 0,
+        };
+        Self { time_offset }
+    }
+}
+
 #[tokio::main]
 async fn main() -> color_eyre::eyre::Result<()> {
     color_eyre::install()?;
@@ -52,6 +78,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
     })
     .await?;
 
+    let shared_state = AppState::new();
     let app = Router::new()
         .route("/status", get(handlers::status::handler))
         .route("/login", post(handlers::login::handler_post))
@@ -69,6 +96,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
                 .post(handlers::reservation::handler_post),
         )
         .route("/api/user/:id", get(handlers::user::handler_get))
+        .with_state(shared_state)
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

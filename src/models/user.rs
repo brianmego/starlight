@@ -49,9 +49,8 @@ impl User {
     pub fn record_id(&self) -> RecordId {
         RecordId::from(("user", &self.id))
     }
-    pub async fn tokens_used(&self) -> u32 {
-        let registration_window = RegistrationWindow::default();
-        let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
+    pub async fn tokens_used(&self, window: &RegistrationWindow<Tz>) -> u32 {
+        let next_week_start = SurrealDateTime::from(window.next_week_start().to_utc());
         let mut response = DB
             .query(queries::USER_TOKEN_USAGE_COUNT)
             .bind(("user", self.record_id()))
@@ -59,17 +58,12 @@ impl User {
             .await
             .unwrap();
         let tokens_used: Option<i32> = response.take(0).unwrap();
-        dbg!(
-            self.record_id(),
-            registration_window.next_week_start(),
-            &tokens_used
-        );
         tokens_used
             .unwrap_or_default()
             .try_into()
             .unwrap_or_default()
     }
-    pub fn total_tokens(&self, registration_window: Option<RegistrationWindow<Tz>>) -> u32 {
+    pub fn total_tokens(&self, window: &RegistrationWindow<Tz>) -> u32 {
         // Level1
         // M T W R F S U
         // 1 0 1 0 1 0 0
@@ -77,10 +71,7 @@ impl User {
         // Level2
         // M T W R F S U
         // 1 1 1 1 1 0 0
-        let window = match registration_window {
-            Some(rw) => rw,
-            None => RegistrationWindow::default(),
-        };
+        let window = window;
         match self.trooptype {
             TroopType::Level1 => match window.now().hour() < 22 {
                 true => match window.now().weekday() {
@@ -273,7 +264,7 @@ mod tests {
         registration_window: RegistrationWindow<Tz>,
         expected: u32,
     ) {
-        let actual = user.total_tokens(Some(registration_window));
+        let actual = user.total_tokens(registration_window);
         assert_eq!(actual, expected);
     }
 }

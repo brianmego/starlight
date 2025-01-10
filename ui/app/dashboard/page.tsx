@@ -17,42 +17,33 @@ function UserData() {
     const { data, error, isLoading } = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/user/${parsed_jwt.ID}`, fetcher);
     const [remainingTokens, setRemainingTokens] = useState(0);
     const [totalTokens, setTotalTokens] = useState(0);
-    const [now, setNow] = useState(null);
 
     useEffect(() => {
         if (data) {
+            console.log(`Now: ${data.now}`);
             setRemainingTokens(data.total_tokens - data.tokens_used);
             setTotalTokens(data.total_tokens);
-            setNow(data.now);
         }
     }, [data])
 
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
     return (
-    <Popover placement="right">
-      <PopoverTrigger>
-        <Button>Token Data</Button>
-      </PopoverTrigger>
-      <PopoverContent>
-        <div className="px-1 py-2">
-          <div className="text-small font-bold">Your troop size grants you a certain number of tokens for next week&apos;s booths</div>
-          <div className="text-small">Remaining Tokens (Next Week): {remainingTokens}</div>
-          <div className="text-tiny">Used Tokens: {data.tokens_used}</div>
-          <div className="text-tiny">Total Tokens: {totalTokens}</div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-    return (
-        <>
-            <h2>Remaining Tokens (Next Week): {remainingTokens}</h2>
-            <h2>Used Tokens: {data.tokens_used}</h2>
-            <h2>Total Tokens: {totalTokens}</h2>
-            <h2>Troop Type: {data.user.trooptype}</h2>
-            <h2>Time: {now}</h2>
-        </>
-    )
+        <Popover placement="right">
+            <PopoverTrigger>
+                <Button>Booth Pick Data</Button>
+            </PopoverTrigger>
+            <PopoverContent>
+                <div className="px-1 py-2">
+                    <div className="text-small font-bold">Your troop size grants you a certain number of booth picks for next week&apos;s booths</div>
+                    <div className="text-small">Remaining Booth Picks (Next Week): {remainingTokens}</div>
+                    <div className="text-tiny">Used Booth Picks: {data.tokens_used}</div>
+                    <div className="text-tiny">Total Booth Picks: {totalTokens}</div>
+                    <div className="text-tiny">New data unlocks at Noon and 10PM each day (page will auto refresh)</div>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
 
 }
 export default function Page() {
@@ -82,7 +73,7 @@ export default function Page() {
 
     useEffect(() => {
         if (data) {
-            let filteredData = filteredDay ? data.filter(x => x.day_of_week_id == filteredDay) : data;
+            let filteredData = filteredDay ? data.reservations.filter(x => x.day_of_week_id == filteredDay) : data.reservations;
             filteredData = filteredDate ? filteredData.filter(x => x.date == filteredDate) : filteredData;
             filteredData = filteredLocation ? filteredData.filter(x => x.location_id == filteredLocation) : filteredData;
             filteredData = filteredTime ? filteredData.filter(x => x.start_time_id == filteredTime) : filteredData;
@@ -103,6 +94,15 @@ export default function Page() {
         }
     }, [data, filteredDate, filteredLocation, filteredDay, filteredTime]);
 
+
+    useEffect(() => {
+        if (data) {
+            const milliseconds = (data.time_until_next_unlock * 1000) + 1000;
+            setTimeout(() => {
+                mutate(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation`);
+            }, milliseconds)
+        };
+    }, [data])
 
     function sortThings(a: any, b: any): any {
         let left: any = a > b;
@@ -137,7 +137,7 @@ export default function Page() {
             "jwt": jwt
         };
         if (data) {
-            const reservation_id = data.filter(x => x.location_id == allSelections.location && x.start_time_id == allSelections.startTime && x.date == allSelections.date)[0].reservation_id;
+            const reservation_id = data.reservations.filter(x => x.location_id == allSelections.location && x.start_time_id == allSelections.startTime && x.date == allSelections.date)[0].reservation_id;
 
             await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${reservation_id}`, {
                 method: "POST",
@@ -152,7 +152,7 @@ export default function Page() {
                 } else if (res.status == 402) {
                     onOpen();
                     setModalHeader("Error")
-                    setModalText("You do not have enough reservation tokens left at this time.")
+                    setModalText("You do not have enough booth picks left at this time.")
                     resetFilters()
                 } else if (res.status == 409) {
                     onOpen();

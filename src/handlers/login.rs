@@ -23,9 +23,6 @@ impl Claims {
     pub fn id(&self) -> String {
         self.id.clone()
     }
-    pub fn troop_type(&self) -> TroopType {
-        self.trooptype.clone()
-    }
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DbUser {

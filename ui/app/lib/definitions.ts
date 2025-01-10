@@ -31,7 +31,10 @@ export type AllSelections = {
     jwt?: string;
 }
 
-export type ReservationData = [ReservationDataRow];
+export type ReservationData = {
+    time_until_next_unlock: number,
+    reservations: [ReservationDataRow]
+};
 
 export type ReservationDataRow = {
     reservation_id: string

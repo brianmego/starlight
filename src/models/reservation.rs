@@ -3,7 +3,7 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use surrealdb::RecordId;
 
-use crate::{models::user::User, DB};
+use crate::{handlers::reservation::RegistrationWindow, models::user::User, DB};
 
 pub enum UnreservableReason {
     NotEnoughTokens,
@@ -27,7 +27,7 @@ impl Reservation {
     pub async fn is_reservable_by_user(
         &self,
         user_id: &str,
-        next_week_start: DateTime<Tz>,
+        window: RegistrationWindow<Tz>
     ) -> Result<(), UnreservableReason> {
         match &self.reserved_by {
             Some(id) => {
@@ -35,12 +35,12 @@ impl Reservation {
                 return Err(UnreservableReason::AlreadyReserved(key.to_string()));
             }
             None => {
-                let is_next_week = self.day() > next_week_start;
+                let is_next_week = self.day() > window.next_week_start();
                 match is_next_week {
                     true => {
                         let user = User::get_by_id(user_id).await.unwrap();
-                        let current_res_count = user.tokens_used().await;
-                        match user.total_tokens(None) > current_res_count {
+                        let current_res_count = user.tokens_used(&window).await;
+                        match user.total_tokens(&window) > current_res_count {
                             true => Ok(()),
                             false => Err(UnreservableReason::NotEnoughTokens),
                         }

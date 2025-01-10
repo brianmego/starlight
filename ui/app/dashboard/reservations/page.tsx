@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import { getCookie } from 'cookies-next'
-import { Button, Card, CardHeader, Divider, Link, Tabs, Tab } from "@nextui-org/react";
+import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@nextui-org/react";
 import { ReservationData, ReservationDataRow } from '@/app/lib/definitions';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
@@ -10,6 +10,10 @@ const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 export default function Page() {
     const { mutate } = useSWRConfig()
     let jwt = getCookie('jwt')?.toString()
+    const { isOpen, onOpen, onOpenChange } = useDisclosure();
+    const [modalText, setModalText] = useState("");
+    const [modalHeader, setModalHeader] = useState("");
+
     let id = ";"
     if (jwt === undefined) {
         id = ""
@@ -40,7 +44,9 @@ export default function Page() {
         }).then((x) => {
             if (x.status == 401) {
                 {
-                    alert("This session is no longer valid. Please log in again.")
+                    onOpen();
+                    setModalHeader("Error")
+                    setModalText("This session is no longer valid. Please log in again.")
                 }
             }
         })
@@ -50,6 +56,25 @@ export default function Page() {
 
     return <>
         <h1><b>My Reservations</b></h1>
+            <Modal isOpen={isOpen} onOpenChange={onOpenChange} backdrop="blur">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader className="flex flex-col gap-1">{modalHeader}</ModalHeader>
+                            <ModalBody>
+                                <p>
+                                    {modalText}
+                                </p>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button color="primary" onPress={onClose}>
+                                    Ok
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
         <div className="flex w-full flex-col">
             <Tabs aria-label="Options">
                 <Tab key="free" title="Free Reservations">

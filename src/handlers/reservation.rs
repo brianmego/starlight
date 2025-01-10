@@ -1,7 +1,7 @@
 use crate::handlers::login::Claims;
 use crate::models::reservation::{Reservation, UnreservableReason};
-use crate::{queries, DB};
-use axum::extract::Path;
+use crate::{queries, AppState, DB};
+use axum::extract::{Path, State};
 use axum::http::{header::HeaderMap, StatusCode};
 use axum::Json;
 use chrono::{prelude::*, DateTime, TimeDelta, TimeZone};
@@ -56,6 +56,20 @@ struct ReservationRequest {
     reservation_id: String,
     user_id: String,
 }
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ReservationListResult {
+    time_until_next_unlock: i64,
+    reservations: Vec<ReservationResult>,
+}
+
+impl ReservationListResult {
+    pub fn new(time_until_next_unlock: i64, reservations: Vec<ReservationResult>) -> Self {
+        Self {
+            time_until_next_unlock,
+            reservations,
+        }
+    }
+}
 
 fn get_hour_suffix(hour: i8) -> String {
     match hour.lt(&12) {
@@ -89,25 +103,17 @@ impl ClockTime {
     }
 }
 
-pub fn now() -> DateTime<Tz> {
-    let now = std::env::var("NOW");
-
-    match now {
-        Ok(d) => Chicago
-            .from_local_datetime(&NaiveDateTime::parse_from_str(&d, "%Y-%m-%d %H:%M:%S").unwrap())
-            .single()
-            .unwrap(),
-        Err(_) => Utc::now().with_timezone(&Chicago),
-    }
+pub fn now(offset: i64) -> DateTime<Tz> {
+    Utc::now().with_timezone(&Chicago) + TimeDelta::seconds(offset)
 }
 
-pub async fn handler_get() -> Json<Vec<ReservationResult>> {
+pub async fn handler_get(State(state): State<AppState>) -> Json<ReservationListResult> {
     info!("GET /api/reservation");
-    let registration_window = RegistrationWindow::new(now());
+    let offset = state.time_offset;
+    let registration_window = RegistrationWindow::new(now(offset));
     let start_time = SurrealDateTime::from(registration_window.now().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
-    dbg!(&registration_window);
     let mut response = DB
         .query(queries::AVAILABLE_RESERVATIONS_QUERY)
         .bind(("start_time", start_time))
@@ -120,13 +126,18 @@ pub async fn handler_get() -> Json<Vec<ReservationResult>> {
         .into_iter()
         .map(|res| res.into())
         .collect();
-    Json(reservation_list)
+    Json(ReservationListResult::new(
+        registration_window.time_until_next_unlock(),
+        reservation_list,
+    ))
 }
 
 pub async fn handler_post(
     headers: HeaderMap,
     Path(reservation_id): Path<String>,
+    State(state): State<AppState>,
 ) -> Result<StatusCode, StatusCode> {
+    let offset = state.time_offset;
     info!("POST /api/reservation/{}", reservation_id);
     let auth_header = headers.get("Authorization");
     let jwt = auth_header
@@ -142,15 +153,14 @@ pub async fn handler_post(
         &Validation::new(Algorithm::HS256),
     )
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
-    let registration_window = RegistrationWindow::new(now());
+    let registration_window = RegistrationWindow::new(now(offset));
 
     let claims = decoded_jwt.claims;
     let user_id = claims.id();
-    dbg!(&reservation_id);
     let reservation_record = Reservation::get_by_id(&reservation_id).await.unwrap();
     let reservation_id = RecordId::from(("reservation", reservation_id));
     match reservation_record
-        .is_reservable_by_user(&user_id, registration_window.next_week_start())
+        .is_reservable_by_user(&user_id, registration_window)
         .await
     {
         Ok(_) => {}
@@ -177,10 +187,12 @@ pub async fn handler_post(
 
 pub async fn handler_get_user_reservations(
     Path(user_id): Path<String>,
+    State(state): State<AppState>,
 ) -> Json<Vec<ReservationResult>> {
     info!("/api/reservation/{}", user_id);
+    let offset = state.time_offset;
     let user_record = RecordId::from(("user", &user_id));
-    let registration_window = RegistrationWindow::new(now());
+    let registration_window = RegistrationWindow::new(now(offset));
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
     let mut response = DB
         .query(queries::USER_RESERVATION_QUERY)
@@ -209,15 +221,15 @@ pub async fn handler_delete_reservation(
         .split("Bearer ")
         .last()
         .unwrap();
-    let claims = jsonwebtoken::decode::<Claims>(
+    let _claims = jsonwebtoken::decode::<Claims>(
         &jwt,
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::new(Algorithm::HS256),
-    );
-    let id = claims.map_err(|x| StatusCode::UNAUTHORIZED)?.claims.id();
+    )
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
     let reservation_id = RecordId::from(("reservation", reservation_id));
-    let response = DB
-        .query("UPDATE reservation SET reserved_by=None WHERE id = $reservation_id")
+    DB.query("UPDATE reservation SET reserved_by=None WHERE id = $reservation_id")
         .bind(("reservation_id", reservation_id))
         .await
         .unwrap();
@@ -227,16 +239,10 @@ pub async fn handler_delete_reservation(
 #[derive(Debug)]
 pub struct RegistrationWindow<Tz: TimeZone> {
     now: DateTime<Tz>,
-    start: DateTime<Tz>,
     end: DateTime<Tz>,
     next_week_start: DateTime<Tz>,
 }
 
-impl Default for RegistrationWindow<Tz> {
-    fn default() -> Self {
-        Self::new(now())
-    }
-}
 impl<Tz: TimeZone> RegistrationWindow<Tz> {
     pub fn new(now: DateTime<Tz>) -> Self {
         // This is the most complicated logic on the site.
@@ -262,11 +268,6 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
             Weekday::Sat => 7,
             Weekday::Sun => 6,
         };
-        let start = now.clone()
-            - TimeDelta::days(12 - days_to_add)
-            - TimeDelta::hours(now.hour().into())
-            - TimeDelta::minutes(now.minute().into())
-            - TimeDelta::seconds(now.second().into());
 
         let end = now.clone() + TimeDelta::days(days_to_add)
             - TimeDelta::hours(now.hour().into())
@@ -286,7 +287,6 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
         };
         Self {
             now,
-            start,
             end,
             next_week_start,
         }
@@ -294,14 +294,25 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
     pub fn now(&self) -> DateTime<Tz> {
         self.now.clone()
     }
-    fn start(&self) -> DateTime<Tz> {
-        self.start.clone()
-    }
     fn end(&self) -> DateTime<Tz> {
         self.end.clone()
     }
     pub fn next_week_start(&self) -> DateTime<Tz> {
         self.next_week_start.clone()
+    }
+    pub fn time_until_next_unlock(&self) -> i64 {
+        let now = self.now();
+        let time_until = if now.hour() < 12 {
+            let future = Chicago.with_ymd_and_hms(now.year(), now.month(), now.day(), 12, 0, 0);
+            future.single().unwrap().naive_local() - now.naive_local()
+        } else if now.hour() < 22 {
+            let future = Chicago.with_ymd_and_hms(now.year(), now.month(), now.day(), 22, 0, 0);
+            future.single().unwrap().naive_local() - now.naive_local()
+        } else {
+            let future = Chicago.with_ymd_and_hms(now.year(), now.month(), now.day(), 22, 0, 0);
+            (future.single().unwrap() + TimeDelta::days(1)).naive_local() - now.naive_local()
+        };
+        time_until.num_seconds()
     }
 }
 
