@@ -35,7 +35,6 @@ export default function Page() {
     if (isLoading) return <p>Loading...</p>
 
     async function deleteHandler(reservation_id: string) {
-        console.log(reservation_id);
         await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${reservation_id}`, {
             method: "DELETE",
             headers: {
@@ -108,7 +107,7 @@ export default function Page() {
                     <Spacer y={2} />
                     {nextWeekReservations.map(
                         (row, i) =>
-                            <>
+                            <div key={i}>
                                 <Card key={i} className="max-w-[400px]">
                                     <CardHeader className="flex gap-3">
                                         <div className="flex flex-col">
@@ -131,7 +130,7 @@ export default function Page() {
                                     <Divider />
                                 </Card>
                                 <Spacer y={2} />
-                            </>
+                            </div>
                     )}
                 </Tab>
             </Tabs>

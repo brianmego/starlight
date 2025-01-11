@@ -10,29 +10,26 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@nextui-org/listbox": "^2.3.7",
-    "@nextui-org/react": "^2.6.8",
-    "@nextui-org/system": "^2.4.4",
-    "@nextui-org/theme": "^2.4.3",
+    "@nextui-org/react": "^2.6.11",
     "clsx": "^2.1.1",
     "cookies-next": "^4.3.0",
-    "framer-motion": "^11.15.0",
+    "framer-motion": "^11.17.0",
     "next": "14.2.2",
     "next-auth": "5.0.0-beta.17",
     "next-themes": "^0.4.4",
     "nextui-cli": "^0.3.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "swr": "^2.2.5"
+    "swr": "^2.3.0"
   },
   "devDependencies": {
-    "@types/node": "^20.17.10",
+    "@types/node": "^20.17.12",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.2",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.3"
   }
 }

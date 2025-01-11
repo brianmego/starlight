@@ -1,12 +1,11 @@
 'use client';
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react"
 import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
-import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Spacer, useDisclosure } from "@nextui-org/react";
+import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Spacer, useDisclosure, Link } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
-import { getCookie, deleteCookie } from 'cookies-next'
-import { useRouter, redirect } from 'next/navigation';
+import { getCookie } from 'cookies-next'
+import { useRouter } from 'next/navigation';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
@@ -31,29 +30,29 @@ function UserData() {
     if (isLoading) return <p>Loading...</p>
     return (
         <>
-        <Popover placement="right">
-            <PopoverTrigger>
-                <Button>Booth Pick Data</Button>
-            </PopoverTrigger>
-            <PopoverContent>
-                <div className="px-1 py-2">
-                    <div className="text-small font-bold">Your troop size grants you a certain number of booth picks for next week&apos;s booths</div>
-                    <div className="text-small">Remaining Booth Picks (Next Week): {remainingTokens}</div>
-                    <div className="text-tiny">Used Booth Picks: {data?.tokens_used}</div>
-                    <div className="text-tiny">Total Booth Picks: {totalTokens}</div>
-                    <div className="text-tiny">New data unlocks at Noon and 10PM each day (page will auto refresh)</div>
-                </div>
-            </PopoverContent>
-        </Popover>
+            <Popover placement="right">
+                <PopoverTrigger>
+                    <Button>Booth Pick Data</Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                    <div className="px-1 py-2">
+                        <div className="text-small font-bold">Your troop size grants you a certain number of booth picks for next week&apos;s booths</div>
+                        <div className="text-small">Remaining Booth Picks (Next Week): {remainingTokens}</div>
+                        <div className="text-tiny">Used Booth Picks: {data?.tokens_used}</div>
+                        <div className="text-tiny">Total Booth Picks: {totalTokens}</div>
+                        <div className="text-tiny">New data unlocks at Noon and 10PM each day (page will auto refresh)</div>
+                    </div>
+                </PopoverContent>
+            </Popover>
             <p>Time server thinks it is: {data?.now}</p>
         </>
     );
 
 }
 export default function Page() {
-    const router = useRouter()
     const { mutate } = useSWRConfig()
     let jwt = getCookie('jwt')?.toString();
+    const router = useRouter();
 
     const [toggleThisWeekReset, setToggleThisWeekReset] = useState(false);
     const [toggleNextWeekReset, setToggleNextWeekReset] = useState(false);
@@ -109,7 +108,9 @@ export default function Page() {
                 mutate(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation`);
             }, milliseconds)
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data])
+
 
     function sortThings(a: any, b: any): any {
         let left: any = a > b;
@@ -124,6 +125,10 @@ export default function Page() {
         }
     }, [dates, locations, startTimes])
 
+    useEffect(() => {
+        router.push("dashboard")
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     function resetFilters() {
         setFilteredDate(undefined);
@@ -179,13 +184,14 @@ export default function Page() {
     }
 
 
-    if (jwt === undefined) {
-        jwt = ""
-    }
-    const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
-    if (Date.now() >= parsed_jwt.exp * 1000) {
-        router.push('/login');
-        return <>You have been logged out due to inactivity</>
+    if (jwt) {
+        const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
+        if (Date.now() >= parsed_jwt.exp * 1000) {
+            return <>
+                <h1>You have been logged out due to inactivity</h1>
+                <Link href="/login">Log In</Link>
+            </>
+        }
     }
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
@@ -214,13 +220,17 @@ export default function Page() {
                     )}
                 </ModalContent>
             </Modal>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap">
                 <div >
                     <EndpointListbox label="This Week" toggleReset={toggleThisWeekReset} setToggleReset={setToggleThisWeekReset} setter={setFilteredDate} data={thisWeekDates} />
                     <EndpointListbox label="Next Week" toggleReset={toggleNextWeekReset} setToggleReset={setToggleNextWeekReset} setter={setFilteredDate} data={nextWeekDates} />
                 </div>
+                <div >
                 <EndpointListbox label="Locations" toggleReset={toggleLocationsReset} setToggleReset={setToggleLocationsReset} currentFilter={filteredDate} setter={setFilteredLocation} data={locations} />
+                </div>
+                <div >
                 <EndpointListbox label="Time" toggleReset={toggleTimesReset} setToggleReset={setToggleTimesReset} currentFilter={filteredDate} setter={setFilteredTime} data={startTimes} />
+                </div>
             </div>
             <Spacer y={4} />
             <ReserveButton clickHandler={handleReserve} isDisabled={!isReservable} />
@@ -256,7 +266,7 @@ function EndpointListbox({ label, toggleReset, setToggleReset, setter, data }: a
     }
 
     return (
-        <div className="flex-none border px-2 py-4">
+        <div className="px-2 py-4">
             <p>{label}</p>
             <ListboxWrapper>
                 <Listbox
