@@ -1,10 +1,12 @@
 'use client';
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react"
 import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
 import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Spacer, useDisclosure } from "@nextui-org/react";
 import { ListboxWrapper } from "./ListboxWrapper";
-import { getCookie } from 'cookies-next'
+import { getCookie, deleteCookie } from 'cookies-next'
+import { useRouter, redirect } from 'next/navigation';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
@@ -20,7 +22,6 @@ function UserData() {
 
     useEffect(() => {
         if (data) {
-            console.log(`Now: ${data.now}`);
             setRemainingTokens(data.total_tokens - data.tokens_used);
             setTotalTokens(data.total_tokens);
         }
@@ -29,6 +30,7 @@ function UserData() {
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
     return (
+        <>
         <Popover placement="right">
             <PopoverTrigger>
                 <Button>Booth Pick Data</Button>
@@ -43,12 +45,15 @@ function UserData() {
                 </div>
             </PopoverContent>
         </Popover>
+            <p>Time server thinks it is: {data?.now}</p>
+        </>
     );
 
 }
 export default function Page() {
+    const router = useRouter()
     const { mutate } = useSWRConfig()
-    const jwt = getCookie('jwt')?.toString();
+    let jwt = getCookie('jwt')?.toString();
 
     const [toggleThisWeekReset, setToggleThisWeekReset] = useState(false);
     const [toggleNextWeekReset, setToggleNextWeekReset] = useState(false);
@@ -174,6 +179,14 @@ export default function Page() {
     }
 
 
+    if (jwt === undefined) {
+        jwt = ""
+    }
+    const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
+    if (Date.now() >= parsed_jwt.exp * 1000) {
+        router.push('/login');
+        return <>You have been logged out due to inactivity</>
+    }
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
 

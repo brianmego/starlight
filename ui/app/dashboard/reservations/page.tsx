@@ -85,7 +85,17 @@ export default function Page() {
                                     <div className="flex flex-col">
                                         <p className="text-md">{row.date} ({row.day_of_week_name})</p>
                                         <p className="text-md">{row.location_name}</p>
-                                        <p className="text-small text-default-500">{row.start_time_name}</p>
+                                        <Spacer y={2} />
+                                        <p className="text-md text-default-500">Address: {row.location_address}</p>
+                                        <p className="text-small text-default-500">Time: {row.start_time_name}</p>
+                                        <Spacer y={2} />
+                                        {row.location_notes &&
+                                            <>
+                                                <p className="text-small text-default-500">Notes: {row.location_notes}</p>
+                                                <Spacer y={2} />
+                                            </>
+                                        }
+                                        <Spacer y={2} />
                                         <Button color="primary" onPress={() => { deleteHandler(row.reservation_id) }}>Delete</Button>
                                     </div>
                                 </CardHeader>

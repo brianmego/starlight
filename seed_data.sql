@@ -13,7 +13,19 @@ DEFINE FIELD duration ON reservation TYPE number DEFAULT 2;
 DEFINE FIELD day ON reservation TYPE datetime;
 DEFINE FIELD location ON reservation TYPE record<location>;
 DEFINE FIELD reserved_by ON reservation TYPE option<record<user>>;
-DEFINE INDEX slot ON reservation FIELDS start, location, day UNIQUE;
+DEFINE INDEX slot ON reservation FIELDS location, day UNIQUE;
+
+-- Create a new event whenever a reservation reserved_by changes
+DEFINE EVENT OVERWRITE reserved_by ON TABLE reservation WHEN $before.reserved_by != $after.reserved_by THEN (
+    CREATE reservation_log SET
+        reservation_id       = $value.id,
+        // Turn events like "UPDATE" into string "reserved_by updated"
+        action     = 'reserved_by' + ' ' + $event.lowercase() + 'd',
+        // `reserved_by` field may be NONE, log as '' if so
+        old_reserved_by  = $before.reserved_by ?? '',
+        new_reserved_by  = $after.reserved_by  ?? '',
+        at         = time::now()
+);
 
 --User
 DEFINE TABLE user SCHEMAFULL
