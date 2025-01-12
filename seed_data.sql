@@ -4,6 +4,7 @@ DEFINE TABLE location SCHEMAFULL
 DEFINE FIELD name ON location TYPE string;
 DEFINE FIELD address ON location TYPE string;
 DEFINE FIELD notes ON location TYPE option<string>;
+DEFINE FIELD enabled ON location TYPE bool DEFAULT true;
 DEFINE INDEX name ON location FIELDS name UNIQUE;
 
 --Reservation

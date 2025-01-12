@@ -12,6 +12,7 @@ pub const AVAILABLE_RESERVATIONS_QUERY: &str = "
         day > $next_week_start as next_week
     FROM reservation
     WHERE reserved_by=None
+      AND location.enabled=true
       AND day > $start_time
       AND day < $end_time
 ";
