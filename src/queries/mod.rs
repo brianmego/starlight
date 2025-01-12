@@ -28,7 +28,8 @@ pub const USER_RESERVATION_QUERY: &str = "
         location.address AS location_address,
         location.notes AS location_notes,
         time::hour(day - 6h) AS start_time,
-        day > $next_week_start as next_week
+        day > $next_week_start as next_week,
+        day <= $current_time as passed
     FROM reservation
     WHERE reserved_by=$user
     ORDER BY date;

@@ -24,6 +24,7 @@ pub struct ReservationDBResult {
     reservation_id: RecordId,
     start_time: i8,
     next_week: Option<bool>,
+    passed: Option<bool>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReservationResult {
@@ -38,6 +39,7 @@ pub struct ReservationResult {
     start_time_id: i8,
     start_time_name: String,
     next_week: Option<bool>,
+    passed: Option<bool>,
 }
 impl From<ReservationDBResult> for ReservationResult {
     fn from(value: ReservationDBResult) -> Self {
@@ -53,6 +55,7 @@ impl From<ReservationDBResult> for ReservationResult {
             start_time_id: value.start_time,
             start_time_name: ClockTime(value.start_time).as_12_hour_time(),
             next_week: value.next_week,
+            passed: value.passed,
         }
     }
 }
@@ -200,10 +203,12 @@ pub async fn handler_get_user_reservations(
     let user_record = RecordId::from(("user", &user_id));
     let registration_window = RegistrationWindow::new(now(offset));
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
+    let current_time = SurrealDateTime::from(registration_window.now().to_utc());
     let mut response = DB
         .query(queries::USER_RESERVATION_QUERY)
         .bind(("user", user_record))
         .bind(("next_week_start", next_week_start))
+        .bind(("current_time", current_time))
         .await
         .unwrap();
     let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();

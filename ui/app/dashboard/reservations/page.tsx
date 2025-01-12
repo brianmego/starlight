@@ -22,11 +22,13 @@ export default function Page() {
     }
     const { data, error, isLoading }: SWRResponse<UserReservationData, boolean, boolean> = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${id}`, fetcher);
     const [nextWeekReservations, setNextWeekReservations] = useState(Array<ReservationDataRow>);
-    const [freeReservations, setFreeReservations] = useState(Array<ReservationDataRow>);
+    const [thisWeekReservations, setThisWeekReservations] = useState(Array<ReservationDataRow>);
+    const [previousReservations, setPreviousReservations] = useState(Array<ReservationDataRow>);
 
     useEffect(() => {
         if (data) {
-            setFreeReservations(data.filter(x => x.next_week == false))
+            setPreviousReservations(data.filter(x => x.passed == true))
+            setThisWeekReservations(data.filter(x => (x.next_week == false && x.passed == false)))
             setNextWeekReservations(data.filter(x => x.next_week == true))
         }
     }, [data])
@@ -76,8 +78,8 @@ export default function Page() {
         </Modal>
         <div className="flex w-full flex-col">
             <Tabs aria-label="Options">
-                <Tab key="free" title="Free Reservations">
-                    {freeReservations.map(
+                <Tab key="thisweek" title="This Week Reservations">
+                    {thisWeekReservations.map(
                         (row, i) =>
                             <Card key={i} className="max-w-[400px]">
                                 <CardHeader className="flex gap-3">
@@ -133,10 +135,31 @@ export default function Page() {
                             </div>
                     )}
                 </Tab>
+                <Tab key="previous" title="Previous Reservations">
+                    <Spacer y={2} />
+                    {previousReservations.map(
+                        (row, i) =>
+                            <div key={i}>
+                                <Card key={i} className="max-w-[400px]">
+                                    <CardHeader className="flex gap-3">
+                                        <div className="flex flex-col">
+                                            <p className="text-md">{row.date} ({row.day_of_week_name})</p>
+                                            <p className="text-md">{row.location_name}</p>
+                                            <Spacer y={2} />
+                                            <p className="text-md text-default-500">Address: {row.location_address}</p>
+                                            <p className="text-small text-default-500">Time: {row.start_time_name}</p>
+                                        </div>
+                                    </CardHeader>
+                                    <Divider />
+                                </Card>
+                                <Spacer y={2} />
+                            </div>
+                    )}
+                    <p>
+                        Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://www.google.com">Google Form</Link>
+                    </p>
+                </Tab>
             </Tabs>
-            <p>
-                Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://www.google.com">Google Form</Link>
-            </p>
         </div>
 
     </>;

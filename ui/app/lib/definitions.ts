@@ -48,6 +48,7 @@ export type ReservationDataRow = {
     start_time_id: number
     start_time_name: string
     next_week: boolean
+    passed: boolean
 }
 
 export type UserReservationData = [ReservationDataRow];
