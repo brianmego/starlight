@@ -10,9 +10,11 @@ const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 export default function Page() {
     const { mutate } = useSWRConfig()
     let jwt = getCookie('jwt')?.toString()
-    const { isOpen, onOpen, onOpenChange } = useDisclosure();
+    const failureModal = useDisclosure();
+    const confirmationModal = useDisclosure();
     const [modalText, setModalText] = useState("");
     const [modalHeader, setModalHeader] = useState("");
+    const [selectedReservationId, setSelectedReservationId] = useState("");
 
     let id = ";"
     if (jwt === undefined) {
@@ -36,8 +38,14 @@ export default function Page() {
     if (error) return <p>failed to load</p>
     if (isLoading) return <p>Loading...</p>
 
-    async function deleteHandler(reservation_id: string) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${reservation_id}`, {
+    async function showDeleteConfirmation(reservation_id: string) {
+        setSelectedReservationId(reservation_id);
+        confirmationModal.onOpen();
+        setModalHeader("Confirm delete");
+        setModalText("Are you sure? Giving this up means others will be allowed to reserve this booth.");
+    }
+    async function deleteHandler() {
+        await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${selectedReservationId}`, {
             method: "DELETE",
             headers: {
                 "authorization": `Bearer ${jwt}`
@@ -45,7 +53,7 @@ export default function Page() {
         }).then((x) => {
             if (x.status == 401) {
                 {
-                    onOpen();
+                    failureModal.onOpen();
                     setModalHeader("Error")
                     setModalText("This session is no longer valid. Please log in again.")
                 }
@@ -53,11 +61,34 @@ export default function Page() {
         })
 
         mutate(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${id}`)
+        confirmationModal.onClose();
     }
 
     return <>
         <h1><b>My Reservations</b></h1>
-        <Modal isOpen={isOpen} onOpenChange={onOpenChange} backdrop="blur">
+        <Modal isOpen={confirmationModal.isOpen} onOpenChange={confirmationModal.onOpenChange} backdrop="blur">
+            <ModalContent>
+                {(onClose) => (
+                    <>
+                        <ModalHeader className="flex flex-col gap-1">{modalHeader}</ModalHeader>
+                        <ModalBody>
+                            <p>
+                                {modalText}
+                            </p>
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button color="default" onPress={onClose}>
+                                Close
+                            </Button>
+                            <Button color="primary" onPress={deleteHandler}>
+                                Confirm
+                            </Button>
+                        </ModalFooter>
+                    </>
+                )}
+            </ModalContent>
+        </Modal>
+        <Modal isOpen={failureModal.isOpen} onOpenChange={failureModal.onOpenChange} backdrop="blur">
             <ModalContent>
                 {(onClose) => (
                     <>
@@ -97,7 +128,7 @@ export default function Page() {
                                             </>
                                         }
                                         <Spacer y={2} />
-                                        <Button color="primary" onPress={() => { deleteHandler(row.reservation_id) }}>Delete</Button>
+                                        <Button color="primary" onPress={() => { showDeleteConfirmation(row.reservation_id) }}>Delete</Button>
                                     </div>
                                 </CardHeader>
                                 <Divider />
@@ -126,7 +157,7 @@ export default function Page() {
                                                 </>
                                             }
                                             <Spacer y={2} />
-                                            <Button color="primary" onPress={() => { deleteHandler(row.reservation_id) }}>Delete</Button>
+                                            <Button color="primary" onPress={() => showDeleteConfirmation(row.reservation_id)}>Delete</Button>
                                         </div>
                                     </CardHeader>
                                     <Divider />

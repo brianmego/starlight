@@ -123,18 +123,28 @@ pub async fn handler_get(State(state): State<AppState>) -> Json<ReservationListR
     let start_time = SurrealDateTime::from(registration_window.now().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
-    let mut response = DB
-        .query(queries::AVAILABLE_RESERVATIONS_QUERY)
-        .bind(("start_time", start_time))
-        .bind(("end_time", end_time))
-        .bind(("next_week_start", next_week_start))
-        .await
-        .unwrap();
-    let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
-    let reservation_list: Vec<ReservationResult> = reservation_db_list
-        .into_iter()
-        .map(|res| res.into())
-        .collect();
+    let reservation_list = match now(offset)
+        < Chicago
+            .with_ymd_and_hms(2025, 1, 15, 22, 0, 0)
+            .single()
+            .unwrap()
+    {
+        true => vec![],
+        false => {
+            let mut response = DB
+                .query(queries::AVAILABLE_RESERVATIONS_QUERY)
+                .bind(("start_time", start_time))
+                .bind(("end_time", end_time))
+                .bind(("next_week_start", next_week_start))
+                .await
+                .unwrap();
+            let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
+            reservation_db_list
+                .into_iter()
+                .map(|res| res.into())
+                .collect()
+        }
+    };
     Json(ReservationListResult::new(
         registration_window.time_until_next_unlock(),
         reservation_list,

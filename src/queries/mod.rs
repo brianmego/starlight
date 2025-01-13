@@ -15,6 +15,7 @@ pub const AVAILABLE_RESERVATIONS_QUERY: &str = "
       AND location.enabled=true
       AND day > $start_time
       AND day < $end_time
+      AND day > $campaign_start
 ";
 
 pub const USER_RESERVATION_QUERY: &str = "
