@@ -1,6 +1,7 @@
 'use client';
 
 import {
+    BookOpenIcon,
     UserGroupIcon,
     HomeIcon,
 } from '@heroicons/react/24/outline';
@@ -13,6 +14,7 @@ import clsx from 'clsx';
 const links = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'My Reservations', href: '/dashboard/reservations', icon: UserGroupIcon },
+    // { name: 'History', href: '/dashboard/history', icon: BookOpenIcon }
 ];
 
 export default function NavLinks() {

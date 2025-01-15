@@ -32,23 +32,34 @@ export type AllSelections = {
 }
 
 export type ReservationData = {
-    time_until_next_unlock: number,
-    reservations: [ReservationDataRow]
+    time_until_next_unlock: number;
+    reservations: [ReservationDataRow];
 };
 
 export type ReservationDataRow = {
-    reservation_id: string
-    date: string
-    day_of_week_id: number
-    day_of_week_name: string
-    location_id: string
-    location_name: string
-    location_address: string
-    location_notes?: string
-    start_time_id: number
-    start_time_name: string
-    next_week: boolean
-    passed: boolean
+    reservation_id: string;
+    date: string;
+    day_of_week_id: number;
+    day_of_week_name: string;
+    location_id: string;
+    location_name: string;
+    location_address: string;
+    location_notes?: string;
+    start_time_id: number;
+    start_time_name: string;
+    next_week: boolean;
+    passed: boolean;
 }
 
 export type UserReservationData = [ReservationDataRow];
+
+export type ReservationLogDataRow = {
+    id: string;
+    action: string;
+    at: string;
+    new_reserved_by?: string;
+    old_reserved_by?: string;
+    reservation_id: string;
+}
+
+export type ReservationLogData = [ReservationLogDataRow];
