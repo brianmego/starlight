@@ -23,8 +23,8 @@ DEFINE EVENT OVERWRITE reserved_by ON TABLE reservation WHEN $before.reserved_by
         // Turn events like "UPDATE" into string "reserved_by updated"
         action     = 'reserved_by' + ' ' + $event.lowercase() + 'd',
         // `reserved_by` field may be NONE, log as '' if so
-        old_reserved_by  = $before.reserved_by ?? '',
-        new_reserved_by  = $after.reserved_by  ?? '',
+        old_reserved_by  = $before.reserved_by ?? NULL,
+        new_reserved_by  = $after.reserved_by  ?? NULL,
         at         = time::now()
 );
 

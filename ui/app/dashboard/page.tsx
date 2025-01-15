@@ -45,7 +45,6 @@ function UserData() {
                 </PopoverContent>
             </Popover>
             <p>FYI: Mathnasium has odd times (half an hour off. Check the notes in My Reservations)</p>
-            <p>Time server thinks it is: {data?.now}</p>
         </>
     );
 
