@@ -4,6 +4,7 @@ use crate::{queries, AppState, DB};
 use axum::extract::{Path, State};
 use axum::http::{header::HeaderMap, StatusCode};
 use axum::Json;
+use cached::proc_macro::once;
 use chrono::{prelude::*, DateTime, TimeDelta, TimeZone};
 use chrono_tz::{America::Chicago, Tz};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
@@ -116,35 +117,30 @@ pub fn now(offset: i64) -> DateTime<Tz> {
     Utc::now().with_timezone(&Chicago) + TimeDelta::seconds(offset)
 }
 
+#[once(time=3, sync_writes=true)]
+async fn get_available_reservations(registration_window: &RegistrationWindow<Tz>) -> Vec<ReservationResult> {
+    let start_time = SurrealDateTime::from(registration_window.now().to_utc());
+    let end_time = SurrealDateTime::from(registration_window.end().to_utc());
+    let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
+    let mut response = DB
+        .query(queries::AVAILABLE_RESERVATIONS_QUERY)
+        .bind(("start_time", start_time))
+        .bind(("end_time", end_time))
+        .bind(("next_week_start", next_week_start))
+        .await
+        .unwrap();
+    let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
+    reservation_db_list
+        .into_iter()
+        .map(|res| res.into())
+        .collect()
+}
+
 pub async fn handler_get(State(state): State<AppState>) -> Json<ReservationListResult> {
     info!("GET /api/reservation");
     let offset = state.time_offset;
     let registration_window = RegistrationWindow::new(now(offset));
-    let start_time = SurrealDateTime::from(registration_window.now().to_utc());
-    let end_time = SurrealDateTime::from(registration_window.end().to_utc());
-    let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
-    let reservation_list = match now(offset)
-        < Chicago
-            .with_ymd_and_hms(2025, 1, 15, 22, 0, 0)
-            .single()
-            .unwrap()
-    {
-        true => vec![],
-        false => {
-            let mut response = DB
-                .query(queries::AVAILABLE_RESERVATIONS_QUERY)
-                .bind(("start_time", start_time))
-                .bind(("end_time", end_time))
-                .bind(("next_week_start", next_week_start))
-                .await
-                .unwrap();
-            let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
-            reservation_db_list
-                .into_iter()
-                .map(|res| res.into())
-                .collect()
-        }
-    };
+    let reservation_list = get_available_reservations(&registration_window).await;
     Json(ReservationListResult::new(
         registration_window.time_until_next_unlock(),
         reservation_list,

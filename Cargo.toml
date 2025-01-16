@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7.5", features = ["ws"] }
+cached = { version = "0.54.0", features = ["async", "async_tokio_rt_multi_thread"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 chrono-tz = { version = "0.10.0", features = ["serde"] }
 clap = { version = "4.5.4", features = ["derive"] }

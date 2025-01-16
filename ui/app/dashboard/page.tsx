@@ -44,7 +44,7 @@ function UserData() {
                     </div>
                 </PopoverContent>
             </Popover>
-            <p>FYI: Mathnasium has odd times (half an hour off. Check the notes in My Reservations)</p>
+            <p>FYI: Mathnasium has odd times during the week (half an hour off. Check the notes in My Reservations)</p>
         </>
     );
 
