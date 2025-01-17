@@ -37,10 +37,12 @@ pub const USER_RESERVATION_QUERY: &str = "
 ";
 
 pub const SET_RESERVATION_QUERY: &str = "
-    UPDATE reservation
-    SET reserved_by=$user
-    WHERE id = $reservation_id
-      AND reserved_by == None
+    (
+        UPDATE reservation
+          SET reserved_by=$user
+        WHERE id = $reservation_id
+          AND reserved_by == None
+    ).len()
 ";
 
 pub const USER_TOKEN_USAGE_COUNT: &str = "

@@ -192,12 +192,18 @@ pub async fn handler_post(
     }
 
     let user_record = RecordId::from(user_id.split_once(':').unwrap());
-    DB.query(queries::SET_RESERVATION_QUERY)
+    let mut resp = DB.query(queries::SET_RESERVATION_QUERY)
         .bind(("reservation_id", reservation_id))
         .bind(("user", user_record))
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    Ok(StatusCode::OK)
+    let rows_updated: Option<i32> = resp.take(0).unwrap();
+    match rows_updated == Some(1) {
+        true => Ok(StatusCode::OK),
+        false => {
+            Err(StatusCode::CONFLICT)
+        },
+    }
 }
 
 pub async fn handler_get_user_reservations(
