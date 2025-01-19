@@ -6,19 +6,30 @@ import {
     HomeIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { getCookie } from 'cookies-next'
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
-// Map of links to display in the side navigation.
-// Depending on the size of the application, this would be stored in a database.
-const links = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-    { name: 'My Reservations', href: '/dashboard/reservations', icon: UserGroupIcon },
-    // { name: 'History', href: '/dashboard/history', icon: BookOpenIcon }
-];
 
 export default function NavLinks() {
     const pathname = usePathname();
+    let jwt = getCookie('jwt')?.toString()
+    let is_admin = false
+    if (jwt === undefined) {
+        is_admin = false
+    } else {
+        is_admin = JSON.parse(atob(jwt.split('.')[1])).is_admin
+    }
+    let links = [
+        { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+        { name: 'My Reservations', href: '/dashboard/reservations', icon: UserGroupIcon },
+    ]
+    if (is_admin === true) {
+        links.push(
+            { name: 'Admin', href: '/dashboard/admin', icon: BookOpenIcon }
+
+        )
+    };
     return (
         <>
             {links.map((link) => {

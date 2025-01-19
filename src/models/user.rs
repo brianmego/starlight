@@ -34,16 +34,20 @@ pub struct User {
     id: String,
     trooptype: TroopType,
     username: String,
+    is_admin: bool
 }
 
 impl User {
-    fn new(id: &str, troop_type: TroopType, username: &str) -> Self {
+    #[cfg(test)]
+    fn new(id: &str, troop_type: TroopType, username: &str, is_admin: bool) -> Self {
         User {
             id: id.into(),
             trooptype: troop_type,
             username: username.into(),
+            is_admin
         }
     }
+
     pub async fn get_by_id(id: &str) -> Option<Self> {
         let (_, id) = id.split_once(':')?;
         let row: UserDbRecord = DB.select(("user", id)).await.unwrap()?;
@@ -125,6 +129,7 @@ pub struct UserDbRecord {
     id: RecordId,
     trooptype: RecordId,
     username: String,
+    is_admin: bool,
 }
 
 impl From<UserDbRecord> for User {
@@ -133,6 +138,7 @@ impl From<UserDbRecord> for User {
             id: value.id.key().to_string(),
             trooptype: value.trooptype.into(),
             username: value.username,
+            is_admin: value.is_admin
         }
     }
 }
@@ -144,127 +150,127 @@ mod tests {
     use test_case::test_case;
 
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap()),
         0; "Lvl1 - Saturday"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap()),
         0; "Lvl1 - Sunday"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap()),
         0; "Lvl1 - Monday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap()),
         1; "Lvl1 - Monday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap()),
         1; "Lvl1 - Tuesday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 22, 0, 0).unwrap()),
         1; "Lvl1 - Tuesday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 19, 0, 0).unwrap()),
         1; "Lvl1 - Wednesday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 22, 0, 0).unwrap()),
         2; "Lvl1 - Wednesday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 19, 0, 0).unwrap()),
         2; "Lvl1 - Thursday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 22, 0, 0).unwrap()),
         3; "Lvl1 - Thursday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 17, 0, 0).unwrap()),
         3; "Lvl1 - Friday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level1, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
         0; "Lvl1 - Friday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 18, 19, 0, 0).unwrap()),
         0; "Lvl2 - Saturday"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 19, 19, 0, 0).unwrap()),
         0; "Lvl2 - Sunday"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 19, 0, 0).unwrap()),
         0; "Lvl2 - Monday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 20, 22, 0, 0).unwrap()),
         1; "Lvl2 - Monday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 19, 0, 0).unwrap()),
         1; "Lvl2 - Tuesday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 21, 22, 0, 0).unwrap()),
         2; "Lvl2 - Tuesday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 19, 0, 0).unwrap()),
         2; "Lvl2 - Wednesday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 22, 22, 0, 0).unwrap()),
         3; "Lvl2 - Wednesday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 19, 0, 0).unwrap()),
         3; "Lvl2 - Thursday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 23, 22, 0, 0).unwrap()),
         4; "Lvl2 - Thursday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 17, 0, 0).unwrap()),
         4; "Lvl2 - Friday before 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level2, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
         5; "Lvl2 - Friday after 10"
     )]
     #[test_case(
-        User::new("95ophx5ryqhqku7qn93d", TroopType::Level3, "Name"),
+        User::new("95ophx5ryqhqku7qn93d", TroopType::Level3, "Name", false),
         RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
         99; "Lvl3 - Always 99"
     )]

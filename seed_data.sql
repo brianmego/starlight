@@ -35,6 +35,7 @@ PERMISSIONS
 DEFINE FIELD username ON user TYPE string;
 DEFINE FIELD password ON user TYPE string;
 DEFINE FIELD trooptype ON user TYPE record<trooptype>;
+DEFINE FIELD is_admin ON user TYPE bool DEFAULT False;
 DEFINE INDEX username ON user FIELDS username UNIQUE;
 DEFINE ACCESS user ON DATABASE TYPE RECORD
     SIGNUP ( CREATE user SET username = $username, password = crypto::argon2::generate($password) )

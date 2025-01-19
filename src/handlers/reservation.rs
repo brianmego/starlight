@@ -91,9 +91,9 @@ fn get_hour_suffix(hour: i8) -> String {
     }
     .into()
 }
-struct ClockTime(i8);
+pub struct ClockTime(pub i8);
 impl ClockTime {
-    fn as_12_hour_time(&self) -> String {
+    pub fn as_12_hour_time(&self) -> String {
         let mut start_time = self.0;
         let mut end_time = self.0 + 2;
         let start_time_suffix = get_hour_suffix(start_time);

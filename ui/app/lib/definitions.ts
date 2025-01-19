@@ -53,13 +53,11 @@ export type ReservationDataRow = {
 
 export type UserReservationData = [ReservationDataRow];
 
-export type ReservationLogDataRow = {
+export type CurrentReservationDataRow = {
     id: string;
-    action: string;
-    at: string;
-    new_reserved_by?: string;
-    old_reserved_by?: string;
-    reservation_id: string;
+    date: string;
+    username: string;
+    location: string;
 }
 
-export type ReservationLogData = [ReservationLogDataRow];
+export type CurrentReservationData = [CurrentReservationDataRow];

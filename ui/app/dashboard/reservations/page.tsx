@@ -16,7 +16,7 @@ export default function Page() {
     const [modalHeader, setModalHeader] = useState("");
     const [selectedReservationId, setSelectedReservationId] = useState("");
 
-    let id = ";"
+    let id = "";
     if (jwt === undefined) {
         id = ""
     } else {
@@ -187,7 +187,7 @@ export default function Page() {
                             </div>
                     )}
                     <p>
-                        Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://www.google.com">Google Form</Link>
+                        Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://docs.google.com/forms/d/e/1FAIpQLSflzxS_c2HTWysCg2ICEBCDt7YON_-kzw_WqajMA79n0v5NRg/viewform">Google Form</Link>
                     </p>
                 </Tab>
             </Tabs>

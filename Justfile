@@ -16,9 +16,11 @@ seed_db:
 
 deploy_be: upload_deploy_script
     cargo build --release
-    ssh starlightcookies -t "sudo systemctl stop backend"
-    scp target/release/starlight starlightcookies:~/starlight
-    ssh starlightcookies -t "sudo systemctl start backend"
+    scp target/release/starlight starlightcookies:~/starlight/starlight.new
+    ssh starlightcookies -t "sudo systemctl stop backend && mv ~/starlight/starlight{,.bak} && mv ~/starlight/starlight{.new,} && sudo systemctl start backend"
+
+revert_be:
+    ssh starlightcookies -t "sudo systemctl stop backend && mv ~/starlight/starlight{,.tmp} && mv ~/starlight/starlight{.bak,} && mv ~/starlight/starlight{.tmp,.bak} && sudo systemctl start backend"
 
 deploy_fe: upload_deploy_script
     cd ui && \

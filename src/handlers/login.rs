@@ -17,6 +17,7 @@ pub struct Claims {
     #[serde(rename = "ID")]
     id: String,
     trooptype: TroopType,
+    is_admin: bool,
     exp: i64,
 }
 impl Claims {
@@ -28,12 +29,13 @@ impl Claims {
 pub struct DbUser {
     id: RecordId,
     trooptype: RecordId,
+    is_admin: bool,
 }
 
 pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<LoginResponse>> {
     let username = payload.user.clone();
     let password = payload.password.clone();
-    let user_id: Option<DbUser> = DB.query("SELECT id, trooptype FROM user WHERE username = $username AND crypto::argon2::compare(password, $password)")
+    let user_id: Option<DbUser> = DB.query("SELECT id, is_admin, trooptype FROM user WHERE username = $username AND crypto::argon2::compare(password, $password)")
         .bind(("username", username))
         .bind(("password", password))
         .await?.take(0)?;
@@ -44,6 +46,7 @@ pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<Login
             let claims = Claims {
                 id: u.id.to_string(),
                 trooptype: u.trooptype.into(),
+                is_admin: u.is_admin,
                 exp: ts,
             };
             let jwt = encode(

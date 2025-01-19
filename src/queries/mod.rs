@@ -52,3 +52,13 @@ pub const USER_TOKEN_USAGE_COUNT: &str = "
         and day > $next_week_start
     ).len()
 ";
+
+pub const CLAIMED_RESERVATIONS: &str = "
+    SELECT id,
+        day as date,
+        reserved_by.username as username,
+        location.name as location
+    FROM reservation
+    WHERE reserved_by != None
+    ORDER BY date DESC
+";
