@@ -29,9 +29,9 @@ impl From<CurrentReservationDB> for CurrentReservation {
             id: value.id.key().to_string(),
             date: format!(
                 "{}/{}/{}",
-                value.date.month(),
-                value.date.day(),
-                value.date.year(),
+                chicago_time.month(),
+                chicago_time.day(),
+                chicago_time.year(),
             ),
             time: clock_time.as_12_hour_time(),
             username: value.username,
