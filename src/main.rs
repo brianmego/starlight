@@ -88,12 +88,12 @@ async fn main() -> color_eyre::eyre::Result<()> {
         )
         .route("/api/reservation", get(handlers::reservation::handler_get))
         .route(
-            "/api/reservation/:id",
+            "/api/reservation/{id}",
             get(handlers::reservation::handler_get_user_reservations)
                 .delete(handlers::reservation::handler_delete_reservation)
                 .post(handlers::reservation::handler_post),
         )
-        .route("/api/user/:id", get(handlers::user::handler_get))
+        .route("/api/user/{id}", get(handlers::user::handler_get))
         .route("/api/history", get(handlers::history::handler_get))
         .with_state(shared_state)
         .layer(

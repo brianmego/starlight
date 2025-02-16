@@ -1,6 +1,7 @@
 'use client';
 
 import { happy_monkey, lusitana } from '@/app/ui/fonts';
+import Link from 'next/link';
 import {
     UserIcon,
     KeyIcon,
@@ -81,6 +82,13 @@ function LoginButton() {
     const { pending } = useFormStatus();
 
     return (
+        // <Link
+        //     href="/login"
+        //     className="flex items-center gap-5 self-start rounded-lg bg-blue-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-400 md:text-base"
+        // >
+        //     <span>Log in</span> <ArrowRightIcon className="w-5 md:w-6" />
+        // </Link>
+
         <Button className="mt-4 w-full" aria-disabled={pending}>
             Log in <ArrowRightIcon className="ml-auto h-5 w-5 text-gray-50" />
         </Button>
