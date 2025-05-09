@@ -14,6 +14,7 @@ DEFINE FIELD duration ON reservation TYPE number DEFAULT 2;
 DEFINE FIELD day ON reservation TYPE datetime;
 DEFINE FIELD location ON reservation TYPE record<location>;
 DEFINE FIELD reserved_by ON reservation TYPE option<record<user>>;
+DEFINE FIELD marked_for_swap ON reservation TYPE bool DEFAULT False;
 DEFINE INDEX slot ON reservation FIELDS location, day UNIQUE;
 
 -- Create a new event whenever a reservation reserved_by changes

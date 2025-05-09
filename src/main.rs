@@ -2,7 +2,7 @@ mod error;
 mod handlers;
 mod models;
 mod queries;
-use chrono::{prelude::*, TimeZone};
+use chrono::{TimeZone, prelude::*};
 use chrono_tz::America::Chicago;
 use env_logger::Env;
 use log::info;
@@ -10,9 +10,9 @@ use once_cell::sync::Lazy;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
-use axum::http::{header::AUTHORIZATION, Method};
-use axum::routing::{get, post};
 use axum::Router;
+use axum::http::{Method, header::AUTHORIZATION};
+use axum::routing::{get, post};
 use clap::Parser;
 use surrealdb::Surreal;
 use surrealdb::{
@@ -82,16 +82,21 @@ async fn main() -> color_eyre::eyre::Result<()> {
     let app = Router::new()
         .route("/status", get(handlers::status::handler))
         .route("/login", post(handlers::login::handler_post))
-        .route(
-            "/api/location",
-            get(handlers::location::handler_get)
-        )
+        .route("/api/location", get(handlers::location::handler_get))
         .route("/api/reservation", get(handlers::reservation::handler_get))
         .route(
             "/api/reservation/{id}",
             get(handlers::reservation::handler_get_user_reservations)
                 .delete(handlers::reservation::handler_delete_reservation)
                 .post(handlers::reservation::handler_post),
+        )
+        .route(
+            "/api/reservation/swap/{old_id}/{new_id}",
+            post(handlers::reservation::handler_swap_reservations),
+        )
+        .route(
+            "/api/reservation/reserveswap/{id}",
+            post(handlers::reservation::handler_reserve_swap),
         )
         .route("/api/user/{id}", get(handlers::user::handler_get))
         .route("/api/history", get(handlers::history::handler_get))

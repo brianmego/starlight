@@ -206,11 +206,47 @@ pub async fn handler_post(
     }
 }
 
+pub async fn handler_swap_reservations(
+    headers: HeaderMap,
+    Path(( old_id, new_id )): Path<(String, String)>,
+    State(state): State<AppState>,
+) -> Result<StatusCode, StatusCode> {
+    info!("POST /api/reservation/swap/{old_id}/{new_id}");
+    Ok(StatusCode::OK)
+}
+pub async fn handler_reserve_swap(
+    headers: HeaderMap,
+    Path(reservation_id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    info!("POST /api/reservation/reserveswap/{reservation_id}");
+    let auth_header = headers.get("Authorization");
+    let jwt = auth_header
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .split("Bearer ")
+        .last()
+        .unwrap();
+    let _claims = jsonwebtoken::decode::<Claims>(
+        &jwt,
+        &DecodingKey::from_secret("secret".as_ref()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    let reservation_id = RecordId::from(("reservation", reservation_id));
+    DB.query("UPDATE reservation SET marked_for_swap=true WHERE id = $reservation_id")
+        .bind(("reservation_id", reservation_id))
+        .await
+        .unwrap();
+    Ok(StatusCode::OK)
+}
+
 pub async fn handler_get_user_reservations(
     Path(user_id): Path<String>,
     State(state): State<AppState>,
 ) -> Json<Vec<ReservationResult>> {
-    info!("/api/reservation/{}", user_id);
+    info!("GET /api/reservation/{}", user_id);
     let offset = state.time_offset;
     let user_record = RecordId::from(("user", &user_id));
     let registration_window = RegistrationWindow::new(now(offset));
@@ -236,6 +272,7 @@ pub async fn handler_delete_reservation(
     headers: HeaderMap,
 ) -> Result<StatusCode, StatusCode> {
     // return Err(StatusCode::UNAUTHORIZED);
+    info!("DELETE /api/reservation/{reservation_id}");
     let auth_header = headers.get("Authorization");
     let jwt = auth_header
         .unwrap()

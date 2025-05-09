@@ -1,13 +1,10 @@
 use chrono::{Datelike, Timelike};
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::Datetime as SurrealDateTime;
 use surrealdb::RecordId;
+use surrealdb::sql::Datetime as SurrealDateTime;
 
-use crate::{
-    handlers::reservation::RegistrationWindow,
-    queries, DB,
-};
+use crate::{DB, handlers::reservation::RegistrationWindow, queries};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum TroopType {
@@ -29,12 +26,35 @@ impl From<RecordId> for TroopType {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SwapReservationDBResult {
+    id: RecordId,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SwapReservationResult {
+    id: String,
+}
+impl SwapReservationResult {
+    pub fn id(&self) -> String {
+        self.id.clone()
+    }
+}
+
+impl From<SwapReservationDBResult> for SwapReservationResult {
+    fn from(value: SwapReservationDBResult) -> Self {
+        Self {
+            id: value.id.key().to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct User {
     id: String,
     trooptype: TroopType,
     username: String,
-    is_admin: bool
+    is_admin: bool,
 }
 
 impl User {
@@ -44,7 +64,7 @@ impl User {
             id: id.into(),
             trooptype: troop_type,
             username: username.into(),
-            is_admin
+            is_admin,
         }
     }
 
@@ -70,6 +90,20 @@ impl User {
             .try_into()
             .unwrap_or_default()
     }
+    pub async fn get_swap_reservation(&self, window: &RegistrationWindow<Tz>) -> Option<SwapReservationResult> {
+        let next_week_start = SurrealDateTime::from(window.next_week_start().to_utc());
+        let query = DB
+            .query(queries::USER_SWAP_RESERVATION)
+            .bind(("user", self.record_id()))
+            .bind(("next_week_start", next_week_start));
+        let mut db_res: Option<SwapReservationDBResult> = query.await.unwrap().take(0).unwrap();
+        let resp = match db_res.take() {
+            Some(r) => Some(SwapReservationResult::from(r)),
+            None => None
+        };
+        resp
+    }
+
     pub fn total_tokens(&self, window: &RegistrationWindow<Tz>) -> u32 {
         // Level1
         // M T W R F S U
@@ -138,7 +172,7 @@ impl From<UserDbRecord> for User {
             id: value.id.key().to_string(),
             trooptype: value.trooptype.into(),
             username: value.username,
-            is_admin: value.is_admin
+            is_admin: value.is_admin,
         }
     }
 }

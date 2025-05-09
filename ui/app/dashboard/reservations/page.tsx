@@ -5,6 +5,11 @@ import { getCookie } from 'cookies-next'
 import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer } from "@nextui-org/react";
 import { UserReservationData, ReservationDataRow } from '@/app/lib/definitions';
 
+enum Action {
+    Swap,
+    Delete
+}
+
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
 export default function Page() {
@@ -15,6 +20,7 @@ export default function Page() {
     const [modalText, setModalText] = useState("");
     const [modalHeader, setModalHeader] = useState("");
     const [selectedReservationId, setSelectedReservationId] = useState("");
+    const [action, setAction] = useState(Action.Delete);
 
     let id = "";
     if (jwt === undefined) {
@@ -43,10 +49,40 @@ export default function Page() {
         confirmationModal.onOpen();
         setModalHeader("Confirm delete");
         setModalText("Are you sure? Giving this up means others will be allowed to reserve this booth.");
+        setAction(Action.Delete);
     }
+
+    async function showSwap(reservation_id: string) {
+        setSelectedReservationId(reservation_id);
+        confirmationModal.onOpen();
+        setModalHeader("It's swapping time!");
+        setModalText("Choose something awesome");
+        setAction(Action.Swap);
+    }
+
     async function deleteHandler() {
         await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${selectedReservationId}`, {
             method: "DELETE",
+            headers: {
+                "authorization": `Bearer ${jwt}`
+            }
+        }).then((x) => {
+            if (x.status == 401) {
+                {
+                    failureModal.onOpen();
+                    setModalHeader("Error")
+                    setModalText("This session is no longer valid. Please log in again.")
+                }
+            }
+        })
+
+        mutate(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${id}`)
+        confirmationModal.onClose();
+    }
+
+    async function swapHandler() {
+        await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/reserveswap/${selectedReservationId}`, {
+            method: "POST",
             headers: {
                 "authorization": `Bearer ${jwt}`
             }
@@ -80,7 +116,7 @@ export default function Page() {
                             <Button color="default" onPress={onClose}>
                                 Close
                             </Button>
-                            <Button color="primary" onPress={deleteHandler}>
+                            <Button color="primary" onPress={action == Action.Delete ? deleteHandler : swapHandler}>
                                 Confirm
                             </Button>
                         </ModalFooter>
@@ -129,6 +165,8 @@ export default function Page() {
                                         }
                                         <Spacer y={2} />
                                         <Button color="primary" onPress={() => { showDeleteConfirmation(row.reservation_id) }}>Delete</Button>
+                                        <Spacer y={2} />
+                                        <Button color="primary" onPress={() => { showSwap(row.reservation_id) }}>Swap</Button>
                                     </div>
                                 </CardHeader>
                                 <Divider />
@@ -158,6 +196,8 @@ export default function Page() {
                                             }
                                             <Spacer y={2} />
                                             <Button color="primary" onPress={() => showDeleteConfirmation(row.reservation_id)}>Delete</Button>
+                                            <Spacer y={2} />
+                                            <Button color="primary" onPress={() => { showSwap(row.reservation_id) }}>Swap</Button>
                                         </div>
                                     </CardHeader>
                                     <Divider />

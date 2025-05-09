@@ -47,4 +47,3 @@ upload_deploy_script:
 alias t := test
 test:
     cargo nextest run
-

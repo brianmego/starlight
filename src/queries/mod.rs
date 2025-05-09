@@ -49,8 +49,15 @@ pub const USER_TOKEN_USAGE_COUNT: &str = "
     (
         SELECT * from reservation
         WHERE reserved_by=$user
-        and day > $next_week_start
+        AND day > $next_week_start
     ).len()
+";
+
+pub const USER_SWAP_RESERVATION: &str = "
+    SELECT id from reservation
+    WHERE reserved_by=$user
+    AND marked_for_swap=true
+    AND day >= $next_week_start
 ";
 
 pub const CLAIMED_RESERVATIONS: &str = "
