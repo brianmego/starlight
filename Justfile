@@ -44,3 +44,7 @@ deploy_systemd_services: upload_deploy_script
 upload_deploy_script:
     scp deploy/deploy.sh starlightcookies:~/starlight
 
+alias t := test
+test:
+    cargo nextest run
+
