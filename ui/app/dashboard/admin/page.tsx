@@ -11,7 +11,7 @@ import {
     TableCell,
     getKeyValue,
     Spinner,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { CurrentReservationDataRow } from "@/app/lib/definitions";
 
 

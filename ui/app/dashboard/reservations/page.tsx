@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import { getCookie } from 'cookies-next'
-import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer } from "@nextui-org/react";
+import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer } from "@heroui/react";
 import { UserReservationData, ReservationDataRow } from '@/app/lib/definitions';
 
 enum Action {

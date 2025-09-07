@@ -2,7 +2,7 @@
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import React, { useEffect, useState } from "react";
 import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
-import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Spacer, useDisclosure, Link } from "@nextui-org/react";
+import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Progress, Spacer, useDisclosure, Link } from "@heroui/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
 import { useRouter } from 'next/navigation';
@@ -30,6 +30,8 @@ function UserData() {
     if (isLoading) return <p>Loading...</p>
     return (
         <>
+            {data?.swap_reservation && <Progress label="Reservation Swap Pending. Please pick a replacement." color="warning" value={50} /> }
+            <Spacer />
             <Popover placement="right">
                 <PopoverTrigger>
                     <Button>Booth Pick Data</Button>
@@ -40,6 +42,7 @@ function UserData() {
                         <div className="text-small">Remaining Booth Picks (Next Week): {remainingTokens}</div>
                         <div className="text-tiny">Used Booth Picks: {data?.tokens_used}</div>
                         <div className="text-tiny">Total Booth Picks: {totalTokens}</div>
+                        <div className="text-tiny">Swap Reservation: {data?.swap_reservation}</div>
                         <div className="text-tiny">New data unlocks at Noon and 10PM each day (page will auto refresh)</div>
                     </div>
                 </PopoverContent>
