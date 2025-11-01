@@ -1,0 +1,15 @@
+# This is a configuration file for the bacon tool
+#
+# Complete help on configuration: https://dystroy.org/bacon/config/
+#
+# You may check the current default at
+#   https://github.com/Canop/bacon/blob/main/defaults/default-bacon.toml
+
+# You can run your application and have the result displayed in bacon,
+# if it makes sense for this crate.
+[jobs.run]
+command = ["cargo", "run"]
+kill = ["kill", "-s", "INT"]
+need_stdout = true
+background = false
+on_change_strategy = "kill_then_restart"
