@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useState } from "react";
+import Dashboard from "../../dashboard/page";
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import { getCookie } from 'cookies-next'
 import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer } from "@heroui/react";
+import { Drawer, DrawerContent, DrawerHeader, DrawerBody, DrawerFooter } from "@heroui/react";
 import { UserReservationData, ReservationDataRow } from '@/app/lib/definitions';
 
 enum Action {
@@ -17,6 +19,7 @@ export default function Page() {
     let jwt = getCookie('jwt')?.toString()
     const failureModal = useDisclosure();
     const confirmationModal = useDisclosure();
+    const swapDrawer = useDisclosure();
     const [modalText, setModalText] = useState("");
     const [modalHeader, setModalHeader] = useState("");
     const [selectedReservationId, setSelectedReservationId] = useState("");
@@ -54,9 +57,7 @@ export default function Page() {
 
     async function showSwap(reservation_id: string) {
         setSelectedReservationId(reservation_id);
-        confirmationModal.onOpen();
-        setModalHeader("It's swapping time!");
-        setModalText("Choose something awesome");
+        swapDrawer.onOpen();
         setAction(Action.Swap);
     }
 
@@ -102,6 +103,23 @@ export default function Page() {
 
     return <>
         <h1><b>My Reservations</b></h1>
+        <Drawer isOpen={swapDrawer.isOpen} onOpenChange={swapDrawer.onOpenChange} size="2xl" placement="bottom">
+            <DrawerContent>
+                {(onClose) => (
+                    <>
+                        <DrawerHeader className="flex flex-col gap-1">Drawer Title</DrawerHeader>
+                        <DrawerBody>
+                            <Dashboard />
+                        </DrawerBody>
+                        <DrawerFooter>
+                            <Button onPress={onClose}>
+                                Close
+                            </Button>
+                        </DrawerFooter>
+                    </>
+                )}
+            </DrawerContent>
+        </Drawer>
         <Modal isOpen={confirmationModal.isOpen} onOpenChange={confirmationModal.onOpenChange} backdrop="blur">
             <ModalContent>
                 {(onClose) => (
@@ -146,86 +164,13 @@ export default function Page() {
         <div className="flex w-full flex-col">
             <Tabs aria-label="Options">
                 <Tab key="thisweek" title="This Week Reservations">
-                    {thisWeekReservations.map(
-                        (row, i) =>
-                            <Card key={i} className="max-w-[400px]">
-                                <CardHeader className="flex gap-3">
-                                    <div className="flex flex-col">
-                                        <p className="text-md">{row.date} ({row.day_of_week_name})</p>
-                                        <p className="text-md">{row.location_name}</p>
-                                        <Spacer y={2} />
-                                        <p className="text-md text-default-500">Address: {row.location_address}</p>
-                                        <p className="text-small text-default-500">Time: {row.start_time_name}</p>
-                                        <Spacer y={2} />
-                                        {row.location_notes &&
-                                            <>
-                                                <p className="text-small text-default-500">Notes: {row.location_notes}</p>
-                                                <Spacer y={2} />
-                                            </>
-                                        }
-                                        <Spacer y={2} />
-                                        <Button color="primary" onPress={() => { showDeleteConfirmation(row.reservation_id) }}>Delete</Button>
-                                        <Spacer y={2} />
-                                        <Button color="primary" onPress={() => { showSwap(row.reservation_id) }}>Swap</Button>
-                                    </div>
-                                </CardHeader>
-                                <Divider />
-                            </Card>
-                    )}
+                    <ThisWeekReservations reservations={thisWeekReservations} showDeleteConfirmation={showDeleteConfirmation} showSwap={showSwap} />
                 </Tab>
                 <Tab key="next" title="Next Week Reservations">
-                    <p>You get booth picks back if you give one of these up</p>
-                    <Spacer y={2} />
-                    {nextWeekReservations.map(
-                        (row, i) =>
-                            <div key={i}>
-                                <Card key={i} className="max-w-[400px]">
-                                    <CardHeader className="flex gap-3">
-                                        <div className="flex flex-col">
-                                            <p className="text-md">{row.date} ({row.day_of_week_name})</p>
-                                            <p className="text-md">{row.location_name}</p>
-                                            <Spacer y={2} />
-                                            <p className="text-md text-default-500">Address: {row.location_address}</p>
-                                            <p className="text-small text-default-500">Time: {row.start_time_name}</p>
-                                            <Spacer y={2} />
-                                            {row.location_notes &&
-                                                <>
-                                                    <p className="text-small text-default-500">Notes: {row.location_notes}</p>
-                                                    <Spacer y={2} />
-                                                </>
-                                            }
-                                            <Spacer y={2} />
-                                            <Button color="primary" onPress={() => showDeleteConfirmation(row.reservation_id)}>Delete</Button>
-                                            <Spacer y={2} />
-                                            <Button color="primary" onPress={() => { showSwap(row.reservation_id) }}>Swap</Button>
-                                        </div>
-                                    </CardHeader>
-                                    <Divider />
-                                </Card>
-                                <Spacer y={2} />
-                            </div>
-                    )}
+                    <NextWeekReservations reservations={nextWeekReservations} showDeleteConfirmation={showDeleteConfirmation} showSwap={showSwap} />
                 </Tab>
                 <Tab key="previous" title="Previous Reservations">
-                    <Spacer y={2} />
-                    {previousReservations.map(
-                        (row, i) =>
-                            <div key={i}>
-                                <Card key={i} className="max-w-[400px]">
-                                    <CardHeader className="flex gap-3">
-                                        <div className="flex flex-col">
-                                            <p className="text-md">{row.date} ({row.day_of_week_name})</p>
-                                            <p className="text-md">{row.location_name}</p>
-                                            <Spacer y={2} />
-                                            <p className="text-md text-default-500">Address: {row.location_address}</p>
-                                            <p className="text-small text-default-500">Time: {row.start_time_name}</p>
-                                        </div>
-                                    </CardHeader>
-                                    <Divider />
-                                </Card>
-                                <Spacer y={2} />
-                            </div>
-                    )}
+                    <PreviousReservations reservations={previousReservations} />
                     <p>
                         Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://docs.google.com/forms/d/e/1FAIpQLSflzxS_c2HTWysCg2ICEBCDt7YON_-kzw_WqajMA79n0v5NRg/viewform">Google Form</Link>
                     </p>
@@ -235,3 +180,110 @@ export default function Page() {
 
     </>;
 }
+
+function ThisWeekReservations({ reservations, showDeleteConfirmation, showSwap }: {
+    reservations: ReservationDataRow[],
+    showDeleteConfirmation: any,
+    showSwap: any
+}) {
+    return (
+        <>
+            {reservations.map(
+                (row, i) =>
+                    <Card key={i} className="max-w-[400px]">
+                        <CardHeader className="flex gap-3">
+                            <div className="flex flex-col">
+                                <p className="text-md">{row.date} ({row.day_of_week_name})</p>
+                                <p className="text-md">{row.location_name}</p>
+                                <Spacer y={2} />
+                                <p className="text-md text-default-500">Address: {row.location_address}</p>
+                                <p className="text-small text-default-500">Time: {row.start_time_name}</p>
+                                <Spacer y={2} />
+                                {row.location_notes &&
+                                    <>
+                                        <p className="text-small text-default-500">Notes: {row.location_notes}</p>
+                                        <Spacer y={2} />
+                                    </>
+                                }
+                                <Spacer y={2} />
+                                <Button color="primary" onPress={() => { showDeleteConfirmation(row.reservation_id) }}>Delete</Button>
+                                <Spacer y={2} />
+                                <Button color="primary" onPress={() => { showSwap(row.reservation_id) }}>Swap</Button>
+                            </div>
+                        </CardHeader>
+                        <Divider />
+                    </Card>
+            )}
+        </>
+    )
+
+}
+function NextWeekReservations({ reservations, showDeleteConfirmation, showSwap }: {
+    reservations: ReservationDataRow[],
+    showDeleteConfirmation: any,
+    showSwap: any
+}) {
+
+    return (
+        <>
+            <p>You get booth picks back if you give one of these up</p>
+            <Spacer y={2} />
+            {reservations.map(
+                (row, i) =>
+                    <div key={i}>
+                        <Card key={i} className="max-w-[400px]">
+                            <CardHeader className="flex gap-3">
+                                <div className="flex flex-col">
+                                    <p className="text-md">{row.date} ({row.day_of_week_name})</p>
+                                    <p className="text-md">{row.location_name}</p>
+                                    <Spacer y={2} />
+                                    <p className="text-md text-default-500">Address: {row.location_address}</p>
+                                    <p className="text-small text-default-500">Time: {row.start_time_name}</p>
+                                    <Spacer y={2} />
+                                    {row.location_notes &&
+                                        <>
+                                            <p className="text-small text-default-500">Notes: {row.location_notes}</p>
+                                            <Spacer y={2} />
+                                        </>
+                                    }
+                                    <Spacer y={2} />
+                                    <Button color="primary" onPress={() => showDeleteConfirmation(row.reservation_id)}>Delete</Button>
+                                    <Spacer y={2} />
+                                    <Button color="primary" onPress={() => { showSwap(row.reservation_id) }}>Swap</Button>
+                                </div>
+                            </CardHeader>
+                            <Divider />
+                        </Card>
+                        <Spacer y={2} />
+                    </div>
+            )}
+        </>
+    )
+}
+
+function PreviousReservations({ reservations }: { reservations: ReservationDataRow[] }) {
+    return (
+        <>
+            <Spacer y={2} />
+            {reservations.map(
+                (row, i) =>
+                    <div key={i}>
+                        <Card key={i} className="max-w-[400px]">
+                            <CardHeader className="flex gap-3">
+                                <div className="flex flex-col">
+                                    <p className="text-md">{row.date} ({row.day_of_week_name})</p>
+                                    <p className="text-md">{row.location_name}</p>
+                                    <Spacer y={2} />
+                                    <p className="text-md text-default-500">Address: {row.location_address}</p>
+                                    <p className="text-small text-default-500">Time: {row.start_time_name}</p>
+                                </div>
+                            </CardHeader>
+                            <Divider />
+                        </Card>
+                        <Spacer y={2} />
+                    </div>
+            )}
+        </>
+    )
+}
+
