@@ -208,18 +208,12 @@ pub async fn handler_post(
 }
 
 pub async fn handler_swap_reservations(
-    _headers: HeaderMap,
+    headers: HeaderMap,
     Path((old_id, new_id)): Path<(String, String)>,
     State(_state): State<AppState>,
 ) -> Result<StatusCode, StatusCode> {
     info!("POST /api/reservation/swap/{old_id}/{new_id}");
-    Ok(StatusCode::OK)
-}
-pub async fn handler_reserve_swap(
-    headers: HeaderMap,
-    Path(reservation_id): Path<String>,
-) -> Result<StatusCode, StatusCode> {
-    info!("POST /api/reservation/reserveswap/{reservation_id}");
+
     let auth_header = headers.get("Authorization");
     let jwt = auth_header
         .unwrap()
@@ -228,16 +222,24 @@ pub async fn handler_reserve_swap(
         .split("Bearer ")
         .last()
         .unwrap();
-    let _claims = jsonwebtoken::decode::<Claims>(
+    let jwt = jsonwebtoken::decode::<Claims>(
         jwt,
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::new(Algorithm::HS256),
     )
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let user_id = jwt.claims.id();
 
-    let reservation_id = RecordId::from(("reservation", reservation_id));
-    DB.query("UPDATE reservation SET marked_for_swap=true WHERE id = $reservation_id")
-        .bind(("reservation_id", reservation_id))
+    let user_record: Option<RecordId> = match user_id.split_once(':') {
+        Some((table, user_id)) => Some(RecordId::from((table, user_id))),
+        None => None
+    };
+    let new_reservation_id = RecordId::from(("reservation", new_id));
+    let old_reservation_id = RecordId::from(("reservation", old_id));
+    DB.query(queries::USER_SWAP_RESERVATION)
+        .bind(("user", user_record))
+        .bind(("new_reservation_id", new_reservation_id))
+        .bind(("old_reservation_id", old_reservation_id))
         .await
         .unwrap();
     Ok(StatusCode::OK)

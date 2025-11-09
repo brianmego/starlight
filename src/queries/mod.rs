@@ -54,10 +54,19 @@ pub const USER_TOKEN_USAGE_COUNT: &str = "
 ";
 
 pub const USER_SWAP_RESERVATION: &str = "
-    SELECT id from reservation
-    WHERE reserved_by=$user
-    AND marked_for_swap=true
-    AND day >= $next_week_start
+    BEGIN TRANSACTION;
+
+    UPDATE reservation
+      SET reserved_by=$user
+    WHERE id = $new_reservation_id
+      AND reserved_by == None;
+
+    UPDATE reservation
+      SET reserved_by=None
+    WHERE id = $old_reservation_id
+      AND reserved_by == $user;
+
+    COMMIT TRANSACTION;
 ";
 
 pub const CLAIMED_RESERVATIONS: &str = "

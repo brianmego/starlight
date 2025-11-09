@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from "react";
 import Dashboard from "../../dashboard/page";
+import { ModeContext, RenderMode } from "../../dashboard/page";
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import { getCookie } from 'cookies-next'
 import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer } from "@heroui/react";
@@ -101,24 +102,32 @@ export default function Page() {
         confirmationModal.onClose();
     }
 
+    function closeSwap() {
+        swapDrawer.onClose();
+        mutate(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/${id}`)
+
+    }
+
     return <>
         <h1><b>My Reservations</b></h1>
         <Drawer isOpen={swapDrawer.isOpen} onOpenChange={swapDrawer.onOpenChange} size="2xl" placement="bottom">
-            <DrawerContent>
-                {(onClose) => (
-                    <>
-                        <DrawerHeader className="flex flex-col gap-1">Drawer Title</DrawerHeader>
-                        <DrawerBody>
-                            <Dashboard />
-                        </DrawerBody>
-                        <DrawerFooter>
-                            <Button onPress={onClose}>
-                                Close
-                            </Button>
-                        </DrawerFooter>
-                    </>
-                )}
-            </DrawerContent>
+            <ModeContext.Provider value={{renderMode: RenderMode.Swap, params: {oldId: selectedReservationId, closeCallback: closeSwap}}}>
+                <DrawerContent>
+                    {(onClose) => (
+                        <>
+                            <DrawerHeader className="flex flex-col gap-1">Choose new reservation</DrawerHeader>
+                            <DrawerBody>
+                                <Dashboard />
+                            </DrawerBody>
+                            <DrawerFooter>
+                                <Button onPress={onClose}>
+                                    Close
+                                </Button>
+                            </DrawerFooter>
+                        </>
+                    )}
+                </DrawerContent>
+            </ModeContext.Provider>
         </Drawer>
         <Modal isOpen={confirmationModal.isOpen} onOpenChange={confirmationModal.onOpenChange} backdrop="blur">
             <ModalContent>

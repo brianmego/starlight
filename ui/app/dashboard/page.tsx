@@ -1,61 +1,29 @@
 'use client';
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
-import React, { useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { AllSelections, ReservationData, ResLocation, ResDate, ResTime } from '../lib/definitions';
 import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Progress, Spacer, useDisclosure, Link } from "@heroui/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
-function UserData() {
-    let jwt = getCookie('jwt')?.toString();
-    if (jwt === undefined) {
-        jwt = ""
-    }
-    const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
-    const { data, error, isLoading } = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/user/${parsed_jwt.ID}`, fetcher);
-    const [remainingTokens, setRemainingTokens] = useState(0);
-    const [totalTokens, setTotalTokens] = useState(0);
-
-    useEffect(() => {
-        if (data) {
-            setRemainingTokens(data.total_tokens - data.tokens_used);
-            setTotalTokens(data.total_tokens);
-        }
-    }, [data])
-
-    if (error) return <p>failed to load</p>
-    if (isLoading) return <p>Loading...</p>
-    return (
-        <>
-            {data?.swap_reservation && <Progress label="Reservation Swap Pending. Please pick a replacement." color="warning" value={50} /> }
-            <Spacer />
-            <Popover placement="right">
-                <PopoverTrigger>
-                    <Button>Booth Pick Data</Button>
-                </PopoverTrigger>
-                <PopoverContent>
-                    <div className="px-1 py-2">
-                        <div className="text-small font-bold">Your troop size grants you a certain number of booth picks for next week&apos;s booths</div>
-                        <div className="text-small">Remaining Booth Picks (Next Week): {remainingTokens}</div>
-                        <div className="text-tiny">Used Booth Picks: {data?.tokens_used}</div>
-                        <div className="text-tiny">Total Booth Picks: {totalTokens}</div>
-                        <div className="text-tiny">Swap Reservation: {data?.swap_reservation}</div>
-                        <div className="text-tiny">New data unlocks at Noon and 10PM each day (page will auto refresh)</div>
-                    </div>
-                </PopoverContent>
-            </Popover>
-            <p>FYI: Mathnasium has odd times during the week (half an hour off. Check the notes in My Reservations)</p>
-        </>
-    );
-
+export enum RenderMode {
+    Swap,
+    Select
 }
+
+export interface DashboardParams {
+    renderMode: RenderMode,
+    params: {}
+}
+export const ModeContext = createContext<DashboardParams>({ renderMode: RenderMode.Select, params: {} });
+
 export default function Page() {
     const { mutate } = useSWRConfig()
     let jwt = getCookie('jwt')?.toString();
-    const router = useRouter();
+    // const router = useRouter();
 
     const [toggleThisWeekReset, setToggleThisWeekReset] = useState(false);
     const [toggleNextWeekReset, setToggleNextWeekReset] = useState(false);
@@ -70,6 +38,7 @@ export default function Page() {
     const [modalText, setModalText] = useState("");
     const [modalHeader, setModalHeader] = useState("");
 
+    let { renderMode: mode, params: params } = useContext(ModeContext);
     const [dates, setDates] = useState<Array<ResDate>>([]);
     const [thisWeekDates, setThisWeekDates] = useState<Array<ResDate>>([]);
     const [nextWeekDates, setNextWeekDates] = useState<Array<ResDate>>([]);
@@ -186,6 +155,47 @@ export default function Page() {
         }
     }
 
+    async function handleSwap() {
+        const allSelections: AllSelections = {
+            "location": locations[0].key,
+            "date": dates[0].key,
+            "startTime": startTimes[0].key,
+            "jwt": jwt
+        };
+        if (data) {
+            const reservation_id = data.reservations.filter(x => x.location_id == allSelections.location && x.start_time_id == allSelections.startTime && x.date == allSelections.date)[0].reservation_id;
+            await fetch(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation/swap/${params.oldId}/${reservation_id}`, {
+                method: "POST",
+                headers: {
+                    "authorization": `Bearer ${jwt}`
+                }
+            }).then(res => {
+                if (res.status == 401) {
+                    onOpen();
+                    setModalHeader("Error")
+                    setModalText("This session is no longer valid. Please log in again.")
+                } else if (res.status == 402) {
+                    onOpen();
+                    setModalHeader("Error")
+                    setModalText("You do not have enough booth picks left at this time.")
+                    resetFilters()
+                } else if (res.status == 409) {
+                    onOpen();
+                    setModalHeader("Error")
+                    setModalText("Failure! Looks like someone got to this one right before you!")
+                    mutate(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation`)
+                    resetFilters()
+                } else if (res.status == 200) {
+                    onOpen();
+                    setModalHeader("Success")
+                    setModalText("Reserved!")
+                    resetFilters()
+                };
+                params.closeCallback();
+            })
+        }
+    }
+
 
     if (jwt) {
         const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
@@ -201,49 +211,99 @@ export default function Page() {
 
     return (
         <>
-            <h1><b>Dashboard Page</b></h1>
-            <UserData />
-            <Spacer y={4} />
-            <Modal isOpen={isOpen} onOpenChange={onOpenChange} backdrop="blur">
-                <ModalContent>
-                    {(onClose) => (
-                        <>
-                            <ModalHeader className="flex flex-col gap-1">{modalHeader}</ModalHeader>
-                            <ModalBody>
-                                <p>
-                                    {modalText}
-                                </p>
-                            </ModalBody>
-                            <ModalFooter>
-                                <Button color="primary" onPress={onClose}>
-                                    Ok
-                                </Button>
-                            </ModalFooter>
-                        </>
-                    )}
-                </ModalContent>
-            </Modal>
+            {
+                mode != RenderMode.Swap &&
+                <>
+                    <h1><b>Dashboard Page</b></h1>
+                    <UserData />
+                    <Spacer y={4} />
+                    <Modal isOpen={isOpen} onOpenChange={onOpenChange} backdrop="blur">
+                        <ModalContent>
+                            {(onClose) => (
+                                <>
+                                    <ModalHeader className="flex flex-col gap-1">{modalHeader}</ModalHeader>
+                                    <ModalBody>
+                                        <p>
+                                            {modalText}
+                                        </p>
+                                    </ModalBody>
+                                    <ModalFooter>
+                                        <Button color="primary" onPress={onClose}>
+                                            Ok
+                                        </Button>
+                                    </ModalFooter>
+                                </>
+                            )}
+                        </ModalContent>
+                    </Modal>
+                </>
+            }
             <div className="flex flex-wrap">
                 <div >
                     <EndpointListbox label="This Week" toggleReset={toggleThisWeekReset} setToggleReset={setToggleThisWeekReset} setter={setFilteredDate} data={thisWeekDates} />
                     <EndpointListbox label="Next Week" toggleReset={toggleNextWeekReset} setToggleReset={setToggleNextWeekReset} setter={setFilteredDate} data={nextWeekDates} />
                 </div>
                 <div >
-                <EndpointListbox label="Locations" toggleReset={toggleLocationsReset} setToggleReset={setToggleLocationsReset} currentFilter={filteredDate} setter={setFilteredLocation} data={locations} />
+                    <EndpointListbox label="Locations" toggleReset={toggleLocationsReset} setToggleReset={setToggleLocationsReset} currentFilter={filteredDate} setter={setFilteredLocation} data={locations} />
                 </div>
                 <div >
-                <EndpointListbox label="Time" toggleReset={toggleTimesReset} setToggleReset={setToggleTimesReset} currentFilter={filteredDate} setter={setFilteredTime} data={startTimes} />
+                    <EndpointListbox label="Time" toggleReset={toggleTimesReset} setToggleReset={setToggleTimesReset} currentFilter={filteredDate} setter={setFilteredTime} data={startTimes} />
                 </div>
             </div>
             <Spacer y={4} />
-            <ReserveButton clickHandler={handleReserve} isDisabled={!isReservable} />
+
+            { mode == RenderMode.Select && <ReserveButton clickHandler={handleReserve} isDisabled={!isReservable} text="Reserve"/>}
+            { mode == RenderMode.Swap && <ReserveButton clickHandler={handleSwap} isDisabled={!isReservable} text="Swap"/>}
         </>
     )
 }
 
-function ReserveButton({ clickHandler, isDisabled }: any) {
+function UserData() {
+    let jwt = getCookie('jwt')?.toString();
+    if (jwt === undefined) {
+        jwt = ""
+    }
+    const parsed_jwt = JSON.parse(atob(jwt.split('.')[1]));
+    const { data, error, isLoading } = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/user/${parsed_jwt.ID}`, fetcher);
+    const [remainingTokens, setRemainingTokens] = useState(0);
+    const [totalTokens, setTotalTokens] = useState(0);
+
+    useEffect(() => {
+        if (data) {
+            setRemainingTokens(data.total_tokens - data.tokens_used);
+            setTotalTokens(data.total_tokens);
+        }
+    }, [data])
+
+    if (error) return <p>failed to load</p>
+    if (isLoading) return <p>Loading...</p>
     return (
-        <Button color="primary" isDisabled={isDisabled} onPress={clickHandler}>Reserve</Button>
+        <>
+            {data?.swap_reservation && <Progress label="Reservation Swap Pending. Please pick a replacement." color="warning" value={50} />}
+            <Spacer />
+            <Popover placement="right">
+                <PopoverTrigger>
+                    <Button>Booth Pick Data</Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                    <div className="px-1 py-2">
+                        <div className="text-small font-bold">Your troop size grants you a certain number of booth picks for next week&apos;s booths</div>
+                        <div className="text-small">Remaining Booth Picks (Next Week): {remainingTokens}</div>
+                        <div className="text-tiny">Used Booth Picks: {data?.tokens_used}</div>
+                        <div className="text-tiny">Total Booth Picks: {totalTokens}</div>
+                        <div className="text-tiny">Swap Reservation: {data?.swap_reservation}</div>
+                        <div className="text-tiny">New data unlocks at Noon and 10PM each day (page will auto refresh)</div>
+                    </div>
+                </PopoverContent>
+            </Popover>
+            <p>FYI: Mathnasium has odd times during the week (half an hour off. Check the notes in My Reservations)</p>
+        </>
+    );
+}
+
+function ReserveButton({ clickHandler, isDisabled, text }: any) {
+    return (
+        <Button color="primary" isDisabled={isDisabled} onPress={clickHandler}>{text}</Button>
     )
 }
 
