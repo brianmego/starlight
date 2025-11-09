@@ -1,12 +1,12 @@
-use crate::models::user::User;
-use log::info;
 use crate::AppState;
-use axum::extract::{Path, State};
+use crate::models::user::User;
 use axum::Json;
+use axum::extract::{Path, State};
 use chrono_tz::Tz;
+use log::info;
 use serde::{Deserialize, Serialize};
 
-use super::reservation::{now, RegistrationWindow};
+use super::reservation::{RegistrationWindow, now};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UserGetResponse {
@@ -15,7 +15,7 @@ pub struct UserGetResponse {
     total_tokens: u32,
     swap_reservation: Option<String>,
     now: String,
-    time_until_next_unlock: i64
+    time_until_next_unlock: i64,
 }
 
 impl UserGetResponse {
@@ -24,17 +24,14 @@ impl UserGetResponse {
         let now = window.now().format("%m-%d-%Y %H:%M:%S").to_string();
         let total_tokens = user.total_tokens(&window);
         let time_until_next_unlock = window.time_until_next_unlock();
-        let swap_reservation = match user.get_swap_reservation(&window).await {
-            Some(res) => Some(res.id()),
-            None => None
-        };
+        let swap_reservation = user.get_swap_reservation(&window).await.map(|res| res.id());
         Self {
             user,
             tokens_used,
             total_tokens,
             swap_reservation,
             now,
-            time_until_next_unlock
+            time_until_next_unlock,
         }
     }
 }

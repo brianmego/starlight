@@ -22,7 +22,7 @@ impl Reservation {
         DB.select(("reservation", id)).await.unwrap()
     }
     pub fn day(&self) -> DateTime<Utc> {
-        self.day.clone()
+        self.day
     }
     pub async fn is_reservable_by_user(
         &self,
@@ -32,7 +32,7 @@ impl Reservation {
         match &self.reserved_by {
             Some(id) => {
                 let key = id.key();
-                return Err(UnreservableReason::AlreadyReserved(key.to_string()));
+                Err(UnreservableReason::AlreadyReserved(key.to_string()))
             }
             None => {
                 let is_next_week = self.day() > window.next_week_start();

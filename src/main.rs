@@ -38,8 +38,8 @@ pub struct AppState {
     time_offset: i64,
 }
 
-impl AppState {
-    pub fn new() -> Self {
+impl Default for AppState {
+    fn default() -> Self {
         let now = std::env::var("NOW");
         let time_offset = match now {
             Ok(d) => {
@@ -78,7 +78,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
     })
     .await?;
 
-    let shared_state = AppState::new();
+    let shared_state = AppState::default();
     let app = Router::new()
         .route("/status", get(handlers::status::handler))
         .route("/login", post(handlers::login::handler_post))

@@ -1,17 +1,17 @@
 use crate::handlers::login::Claims;
 use crate::models::reservation::{Reservation, UnreservableReason};
-use crate::{queries, AppState, DB};
-use axum::extract::{Path, State};
-use axum::http::{header::HeaderMap, StatusCode};
+use crate::{AppState, DB, queries};
 use axum::Json;
+use axum::extract::{Path, State};
+use axum::http::{StatusCode, header::HeaderMap};
 use cached::proc_macro::once;
-use chrono::{prelude::*, DateTime, TimeDelta, TimeZone};
+use chrono::{DateTime, TimeDelta, TimeZone, prelude::*};
 use chrono_tz::{America::Chicago, Tz};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
 use log::info;
 use serde::{Deserialize, Serialize};
-use surrealdb::sql::Datetime as SurrealDateTime;
 use surrealdb::RecordId;
+use surrealdb::sql::Datetime as SurrealDateTime;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ReservationDBResult {
@@ -61,11 +61,11 @@ impl From<ReservationDBResult> for ReservationResult {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct ReservationRequest {
-    reservation_id: String,
-    user_id: String,
-}
+// #[derive(Debug, Deserialize, Serialize)]
+// struct ReservationRequest {
+//     reservation_id: String,
+//     user_id: String,
+// }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ReservationListResult {
     time_until_next_unlock: i64,
@@ -98,8 +98,8 @@ impl ClockTime {
         let mut end_time = self.0 + 2;
         let start_time_suffix = get_hour_suffix(start_time);
         let end_time_suffix = get_hour_suffix(end_time);
-        start_time = start_time % 12;
-        end_time = end_time % 12;
+        start_time %= 12;
+        end_time %= 12;
         if start_time == 0 {
             start_time = 12;
         }
@@ -117,8 +117,10 @@ pub fn now(offset: i64) -> DateTime<Tz> {
     Utc::now().with_timezone(&Chicago) + TimeDelta::seconds(offset)
 }
 
-#[once(time=3, sync_writes=true)]
-async fn get_available_reservations(registration_window: &RegistrationWindow<Tz>) -> Vec<ReservationResult> {
+#[once(time = 3, sync_writes = true)]
+async fn get_available_reservations(
+    registration_window: &RegistrationWindow<Tz>,
+) -> Vec<ReservationResult> {
     let start_time = SurrealDateTime::from(registration_window.now().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
@@ -161,9 +163,9 @@ pub async fn handler_post(
         .map_err(|_| StatusCode::UNAUTHORIZED)?
         .split("Bearer ")
         .last()
-        .ok_or_else(|| StatusCode::UNAUTHORIZED)?;
+        .ok_or(StatusCode::UNAUTHORIZED)?;
     let decoded_jwt = jsonwebtoken::decode::<Claims>(
-        &jwt,
+        jwt,
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::new(Algorithm::HS256),
     )
@@ -192,7 +194,8 @@ pub async fn handler_post(
     }
 
     let user_record = RecordId::from(user_id.split_once(':').unwrap());
-    let mut resp = DB.query(queries::SET_RESERVATION_QUERY)
+    let mut resp = DB
+        .query(queries::SET_RESERVATION_QUERY)
         .bind(("reservation_id", reservation_id))
         .bind(("user", user_record))
         .await
@@ -200,16 +203,14 @@ pub async fn handler_post(
     let rows_updated: Option<i32> = resp.take(0).unwrap();
     match rows_updated == Some(1) {
         true => Ok(StatusCode::OK),
-        false => {
-            Err(StatusCode::CONFLICT)
-        },
+        false => Err(StatusCode::CONFLICT),
     }
 }
 
 pub async fn handler_swap_reservations(
-    headers: HeaderMap,
-    Path(( old_id, new_id )): Path<(String, String)>,
-    State(state): State<AppState>,
+    _headers: HeaderMap,
+    Path((old_id, new_id)): Path<(String, String)>,
+    State(_state): State<AppState>,
 ) -> Result<StatusCode, StatusCode> {
     info!("POST /api/reservation/swap/{old_id}/{new_id}");
     Ok(StatusCode::OK)
@@ -228,7 +229,7 @@ pub async fn handler_reserve_swap(
         .last()
         .unwrap();
     let _claims = jsonwebtoken::decode::<Claims>(
-        &jwt,
+        jwt,
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::new(Algorithm::HS256),
     )
@@ -282,7 +283,7 @@ pub async fn handler_delete_reservation(
         .last()
         .unwrap();
     let _claims = jsonwebtoken::decode::<Claims>(
-        &jwt,
+        jwt,
         &DecodingKey::from_secret("secret".as_ref()),
         &Validation::new(Algorithm::HS256),
     )
@@ -299,7 +300,7 @@ pub async fn handler_delete_reservation(
 #[derive(Debug)]
 pub struct RegistrationWindow<Tz: TimeZone> {
     now: DateTime<Tz>,
-    start: DateTime<Tz>,
+    _start: DateTime<Tz>,
     end: DateTime<Tz>,
     next_week_start: DateTime<Tz>,
 }
@@ -330,7 +331,7 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
             Weekday::Sun => 6,
         };
 
-        let start = now.clone()
+        let _start = now.clone()
             - TimeDelta::days(12 - days_to_add)
             - TimeDelta::hours(now.hour().into())
             - TimeDelta::minutes(now.minute().into())
@@ -354,7 +355,7 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
         };
         Self {
             now,
-            start,
+            _start,
             end,
             next_week_start,
         }
@@ -368,9 +369,9 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
         self.end.clone()
     }
 
-    fn start(&self) -> DateTime<Tz> {
-        self.start.clone()
-    }
+    // fn start(&self) -> DateTime<Tz> {
+    //     self.start.clone()
+    // }
 
     pub fn next_week_start(&self) -> DateTime<Tz> {
         self.next_week_start.clone()
@@ -463,13 +464,13 @@ mod tests {
         "Friday after noon")]
     fn test_active_registration_window(
         now: DateTime<Tz>,
-        start_time: DateTime<Tz>,
+        _start_time: DateTime<Tz>,
         end_time: DateTime<Tz>,
         next_week_start: DateTime<Tz>,
     ) {
         let actual = RegistrationWindow::new(now);
         assert_eq!(actual.now(), now);
-        assert_eq!(actual.start(), start_time);
+        // assert_eq!(actual.start(), start_time);
         assert_eq!(actual.end(), end_time);
         assert_eq!(actual.next_week_start(), next_week_start);
     }

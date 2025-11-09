@@ -97,11 +97,7 @@ impl User {
             .bind(("user", self.record_id()))
             .bind(("next_week_start", next_week_start));
         let mut db_res: Option<SwapReservationDBResult> = query.await.unwrap().take(0).unwrap();
-        let resp = match db_res.take() {
-            Some(r) => Some(SwapReservationResult::from(r)),
-            None => None
-        };
-        resp
+        db_res.take().map(SwapReservationResult::from)
     }
 
     pub fn total_tokens(&self, window: &RegistrationWindow<Tz>) -> u32 {
@@ -112,7 +108,6 @@ impl User {
         // Level2
         // M T W R F S U
         // 1 1 1 1 1 0 0
-        let window = window;
         match self.trooptype {
             TroopType::Level1 => match window.now().hour() < 22 {
                 true => match window.now().weekday() {
