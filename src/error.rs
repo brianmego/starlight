@@ -1,5 +1,6 @@
 use axum::{http::StatusCode, response::{ IntoResponse, Response }};
 use derive_more::From;
+use log::error;
 
 use crate::handlers::login::LoginError;
 
@@ -10,9 +11,10 @@ pub enum Error {
     #[from]
     LoginError(LoginError),
 
+    Db(surrealdb::Error),
     // -- Externals
-    #[from]
-    DbError(surrealdb::Error),
+    // #[from]
+    // DbError(surrealdb::Error),
 }
 
 // impl Error {
@@ -27,6 +29,12 @@ impl IntoResponse for Error {
     }
 }
 
+impl From<surrealdb::Error> for Error {
+    fn from(error: surrealdb::Error) -> Self {
+        error!("{error}");
+        Self::Db(error)
+    }
+}
 impl std::fmt::Display for Error {
     fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::result::Result<(), core::fmt::Error> {
         write!(fmt, "{self:?}")
@@ -36,7 +44,7 @@ impl std::fmt::Debug for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::LoginError(arg0) => f.debug_tuple("LoginError").field(arg0).finish(),
-            Self::DbError(arg0) => f.debug_tuple("DbError").field(arg0).finish(),
+            Self::Db(arg0) => f.debug_tuple("DbError").field(arg0).finish(),
         }
     }
 }

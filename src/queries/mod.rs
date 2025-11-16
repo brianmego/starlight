@@ -75,6 +75,6 @@ pub const CLAIMED_RESERVATIONS: &str = "
         reserved_by.username as username,
         location.name as location
     FROM reservation
-    WHERE reserved_by != None
+    WHERE reserved_by.username != None
     ORDER BY date DESC
 ";
