@@ -24,7 +24,7 @@ pub struct CurrentReservation {
 impl From<CurrentReservationDB> for CurrentReservation {
     fn from(value: CurrentReservationDB) -> Self {
         let chicago_time = value.date.with_timezone(&Chicago);
-        let clock_time = ClockTime(chicago_time.hour() as i8);
+        let clock_time = ClockTime(i8::try_from(chicago_time.hour()).expect("Known timezone"));
         Self {
             id: value.id.key().to_string(),
             date: format!(

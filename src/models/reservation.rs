@@ -29,25 +29,16 @@ impl Reservation {
         user_id: &str,
         window: RegistrationWindow<Tz>
     ) -> Result<(), UnreservableReason> {
-        match &self.reserved_by {
-            Some(id) => {
-                let key = id.key();
-                Err(UnreservableReason::AlreadyReserved(key.to_string()))
-            }
-            None => {
-                let is_next_week = self.day() > window.next_week_start();
-                match is_next_week {
-                    true => {
-                        let user = User::get_by_id(user_id).await.unwrap();
-                        let current_res_count = user.tokens_used(&window).await;
-                        match user.total_tokens(&window) > current_res_count {
-                            true => Ok(()),
-                            false => Err(UnreservableReason::NotEnoughTokens),
-                        }
-                    }
-                    false => Ok(()),
-                }
-            }
+        if let Some(id) = &self.reserved_by {
+            let key = id.key();
+            Err(UnreservableReason::AlreadyReserved(key.to_string()))
+        } else {
+            let is_next_week = self.day() > window.next_week_start();
+            if is_next_week {
+                let user = User::get_by_id(user_id).await.unwrap();
+                let current_res_count = user.tokens_used(&window).await;
+                if user.total_tokens(&window) > current_res_count { Ok(()) } else { Err(UnreservableReason::NotEnoughTokens) }
+            } else { Ok(()) }
         }
     }
 }

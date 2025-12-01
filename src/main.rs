@@ -6,7 +6,6 @@ use chrono::{TimeZone, prelude::*};
 use chrono_tz::America::Chicago;
 use env_logger::Env;
 use log::info;
-use once_cell::sync::Lazy;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -20,7 +19,7 @@ use surrealdb::{
     opt::auth::Root,
 };
 
-static DB: Lazy<Surreal<DbClient>> = Lazy::new(Surreal::init);
+static DB: std::sync::LazyLock<Surreal<DbClient>> = std::sync::LazyLock::new(Surreal::init);
 
 type Error = error::Error;
 type Result<T> = error::Result<T>;
@@ -104,7 +103,7 @@ async fn main() -> color_eyre::eyre::Result<()> {
                 .allow_headers([AUTHORIZATION]),
         );
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
-    info!("Running on {}", addr);
+    info!("Running on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
     Ok(())

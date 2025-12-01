@@ -1,8 +1,8 @@
-use log::warn;
-use crate::{models::user::TroopType, Error, Result, DB};
+use crate::{DB, Error, Result, models::user::TroopType};
 use axum::Json;
-use chrono::{Utc, TimeDelta};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use chrono::{TimeDelta, Utc};
+use jsonwebtoken::{EncodingKey, Header, encode};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use surrealdb::RecordId;
 
@@ -40,29 +40,27 @@ pub async fn handler_post(Json(payload): Json<Credentials>) -> Result<Json<Login
         .bind(("password", password))
         .await?.take(0)?;
     let ts = (Utc::now() + TimeDelta::minutes(60)).timestamp();
-    match user_id {
-        Some(u) => {
-            println!("{} logged in!", &payload.user);
-            let claims = Claims {
-                id: u.id.to_string(),
-                trooptype: u.trooptype.into(),
-                is_admin: u.is_admin,
-                exp: ts,
-            };
-            let jwt = encode(
-                &Header::default(),
-                &claims,
-                &EncodingKey::from_secret("secret".as_ref()),
-            );
-            let response = LoginResponse::new(jwt.unwrap());
-            Ok(Json(response))
-        }
-        None => {
-            warn!("Bad login attempt for {}", payload.user);
-            Err(Error::LoginError(LoginError))
-        },
+    if let Some(u) = user_id {
+        println!("{} logged in!", &payload.user);
+        let claims = Claims {
+            id: u.id.to_string(),
+            trooptype: u.trooptype.into(),
+            is_admin: u.is_admin,
+            exp: ts,
+        };
+        let jwt = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret("secret".as_ref()),
+        );
+        let response = LoginResponse::new(jwt.unwrap());
+        Ok(Json(response))
+    } else {
+        warn!("Bad login attempt for {}", payload.user);
+        Err(Error::LoginError(LoginError))
     }
 }
+
 #[derive(Debug)]
 pub struct LoginError;
 

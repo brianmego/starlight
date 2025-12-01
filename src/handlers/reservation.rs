@@ -82,12 +82,10 @@ impl ReservationListResult {
 }
 
 fn get_hour_suffix(hour: i8) -> String {
-    match hour.lt(&12) {
-        true => "am",
-        false => match hour.ge(&24) {
-            true => "am",
-            false => "pm",
-        },
+    if hour.lt(&12) || hour.ge(&24) {
+        "am"
+    } else {
+        "pm"
     }
     .into()
 }
@@ -106,10 +104,7 @@ impl ClockTime {
         if end_time == 0 {
             end_time = 12;
         }
-        format!(
-            "{} {} - {} {}",
-            start_time, start_time_suffix, end_time, end_time_suffix
-        )
+        format!("{start_time} {start_time_suffix} - {end_time} {end_time_suffix}")
     }
 }
 
@@ -134,7 +129,7 @@ async fn get_available_reservations(
     let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
     reservation_db_list
         .into_iter()
-        .map(|res| res.into())
+        .map(std::convert::Into::into)
         .collect()
 }
 
@@ -155,7 +150,7 @@ pub async fn handler_post(
     State(state): State<AppState>,
 ) -> Result<StatusCode, StatusCode> {
     let offset = state.time_offset;
-    info!("POST /api/reservation/{}", reservation_id);
+    info!("POST /api/reservation/{reservation_id}");
     let auth_header = headers.get("Authorization");
     let jwt = auth_header
         .unwrap()
@@ -180,14 +175,14 @@ pub async fn handler_post(
         .is_reservable_by_user(&user_id, registration_window)
         .await
     {
-        Ok(_) => {}
+        Ok(()) => {}
         Err(err) => match err {
             UnreservableReason::NotEnoughTokens => {
                 println!("Not enough tokens");
                 Err(StatusCode::PAYMENT_REQUIRED)?;
             }
             UnreservableReason::AlreadyReserved(uid) => {
-                println!("Already reserved by user: {}", uid);
+                println!("Already reserved by user: {uid}");
                 Err(StatusCode::CONFLICT)?;
             }
         },
@@ -201,9 +196,10 @@ pub async fn handler_post(
         .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;
     let rows_updated: Option<i32> = resp.take(0).unwrap();
-    match rows_updated == Some(1) {
-        true => Ok(StatusCode::OK),
-        false => Err(StatusCode::CONFLICT),
+    if rows_updated == Some(1) {
+        Ok(StatusCode::OK)
+    } else {
+        Err(StatusCode::CONFLICT)
     }
 }
 
@@ -230,10 +226,9 @@ pub async fn handler_swap_reservations(
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
     let user_id = jwt.claims.id();
 
-    let user_record: Option<RecordId> = match user_id.split_once(':') {
-        Some((table, user_id)) => Some(RecordId::from((table, user_id))),
-        None => None
-    };
+    let user_record: Option<RecordId> = user_id
+        .split_once(':')
+        .map(|(table, user_id)| RecordId::from((table, user_id)));
     let new_reservation_id = RecordId::from(("reservation", new_id));
     let old_reservation_id = RecordId::from(("reservation", old_id));
     DB.query(queries::USER_SWAP_RESERVATION)
@@ -249,7 +244,7 @@ pub async fn handler_get_user_reservations(
     Path(user_id): Path<String>,
     State(state): State<AppState>,
 ) -> Json<Vec<ReservationResult>> {
-    info!("GET /api/reservation/{}", user_id);
+    info!("GET /api/reservation/{user_id}");
     let offset = state.time_offset;
     let user_record = RecordId::from(("user", &user_id));
     let registration_window = RegistrationWindow::new(now(offset));
@@ -265,7 +260,7 @@ pub async fn handler_get_user_reservations(
     let reservation_db_list: Vec<ReservationDBResult> = response.take(0).unwrap();
     let reservation_list: Vec<ReservationResult> = reservation_db_list
         .into_iter()
-        .map(|res| res.into())
+        .map(std::convert::Into::into)
         .collect();
     Json(reservation_list)
 }
@@ -321,10 +316,13 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
         //
         // The unit tests validate this crazy logic
         let days_to_add = match now.weekday() {
-            Weekday::Mon => match now.hour() < 22 {
-                true => 5,
-                false => 12,
-            },
+            Weekday::Mon => {
+                if now.hour() < 22 {
+                    5
+                } else {
+                    12
+                }
+            }
             Weekday::Tue => 11,
             Weekday::Wed => 10,
             Weekday::Thu => 9,
@@ -333,7 +331,7 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
             Weekday::Sun => 6,
         };
 
-        let _start = now.clone()
+        let start = now.clone()
             - TimeDelta::days(12 - days_to_add)
             - TimeDelta::hours(now.hour().into())
             - TimeDelta::minutes(now.minute().into())
@@ -345,19 +343,25 @@ impl<Tz: TimeZone> RegistrationWindow<Tz> {
             - TimeDelta::seconds(now.second().into());
         let next_week_start = match now.weekday() {
             Weekday::Tue | Weekday::Wed | Weekday::Thu => end.clone() - TimeDelta::days(7),
-            Weekday::Fri => match now.hour() < 12 {
-                true => end.clone() - TimeDelta::days(7),
-                false => end.clone(),
-            },
-            Weekday::Mon => match now.hour() < 22 {
-                true => end.clone(),
-                false => end.clone() - TimeDelta::days(7),
-            },
+            Weekday::Fri => {
+                if now.hour() < 12 {
+                    end.clone() - TimeDelta::days(7)
+                } else {
+                    end.clone()
+                }
+            }
+            Weekday::Mon => {
+                if now.hour() < 22 {
+                    end.clone()
+                } else {
+                    end.clone() - TimeDelta::days(7)
+                }
+            }
             Weekday::Sat | Weekday::Sun => end.clone(),
         };
         Self {
             now,
-            _start,
+            _start: start,
             end,
             next_week_start,
         }

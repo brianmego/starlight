@@ -10,6 +10,6 @@ pub async fn handler_get() -> Result<Json<Vec<CurrentReservation>>> {
     let db_rows: Vec<CurrentReservationDB> =
         DB.query(queries::CLAIMED_RESERVATIONS).await?.take(0)?;
     let current_reservations: Vec<CurrentReservation> =
-        db_rows.into_iter().map(|r| r.into()).collect();
+        db_rows.into_iter().map(std::convert::Into::into).collect();
     Ok(Json(current_reservations))
 }
