@@ -1,3 +1,5 @@
+import { createContext } from "react";
+
 export type AuthenticatedUser = {
     username: string;
     jwt: string;
@@ -61,3 +63,27 @@ export type CurrentReservationDataRow = {
 }
 
 export type CurrentReservationData = [CurrentReservationDataRow];
+
+export enum Action {
+    Swap,
+    Delete
+}
+
+export enum RenderMode {
+    Swap,
+    Select
+}
+
+export interface DashboardParams {
+    renderMode: RenderMode,
+    params: {
+        oldId?: string,
+        closeCallback?: any
+    }
+}
+export const ModeContext = createContext<DashboardParams>({
+    renderMode: RenderMode.Select,
+    params: {
+    }
+});
+

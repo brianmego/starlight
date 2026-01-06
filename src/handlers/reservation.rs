@@ -116,6 +116,12 @@ pub fn now(offset: i64) -> DateTime<Tz> {
 async fn get_available_reservations(
     registration_window: &RegistrationWindow<Tz>,
 ) -> Vec<ReservationResult> {
+    //Change this each year for the start date of booth picks
+    let absolute_start = Chicago.with_ymd_and_hms(2026, 1, 12, 22, 0, 0).unwrap();
+
+    if registration_window.now().to_utc() < absolute_start {
+        return vec![];
+    }
     let start_time = SurrealDateTime::from(registration_window.now().to_utc());
     let end_time = SurrealDateTime::from(registration_window.end().to_utc());
     let next_week_start = SurrealDateTime::from(registration_window.next_week_start().to_utc());
@@ -172,7 +178,7 @@ pub async fn handler_post(
     let reservation_record = Reservation::get_by_id(&reservation_id).await.unwrap();
     let reservation_id = RecordId::from(("reservation", reservation_id));
     match reservation_record
-        .is_reservable_by_user(&user_id, registration_window)
+        .is_reservable_by_user(&user_id, &registration_window, false)
         .await
     {
         Ok(()) => {}
@@ -206,7 +212,7 @@ pub async fn handler_post(
 pub async fn handler_swap_reservations(
     headers: HeaderMap,
     Path((old_id, new_id)): Path<(String, String)>,
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
 ) -> Result<StatusCode, StatusCode> {
     info!("POST /api/reservation/swap/{old_id}/{new_id}");
 
@@ -226,18 +232,40 @@ pub async fn handler_swap_reservations(
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
     let user_id = jwt.claims.id();
 
+    let offset = state.time_offset;
+    let registration_window = RegistrationWindow::new(now(offset));
     let user_record: Option<RecordId> = user_id
         .split_once(':')
         .map(|(table, user_id)| RecordId::from((table, user_id)));
+    let old_reservation = Reservation::get_by_id(&old_id).await.unwrap();
+    let new_reservation = Reservation::get_by_id(&new_id).await.unwrap();
     let new_reservation_id = RecordId::from(("reservation", new_id));
     let old_reservation_id = RecordId::from(("reservation", old_id));
-    DB.query(queries::USER_SWAP_RESERVATION)
-        .bind(("user", user_record))
-        .bind(("new_reservation_id", new_reservation_id))
-        .bind(("old_reservation_id", old_reservation_id))
+    let swapping_for_token = old_reservation.will_cost_token(&registration_window);
+    match new_reservation
+        .is_reservable_by_user(&user_id, &registration_window, swapping_for_token)
         .await
-        .unwrap();
-    Ok(StatusCode::OK)
+    {
+        Ok(()) => {
+            DB.query(queries::USER_SWAP_RESERVATION)
+                .bind(("user", user_record))
+                .bind(("new_reservation_id", new_reservation_id))
+                .bind(("old_reservation_id", old_reservation_id))
+                .await
+                .unwrap();
+            Ok(StatusCode::OK)
+        }
+        Err(err) => match err {
+            UnreservableReason::NotEnoughTokens => {
+                println!("Not enough tokens");
+                Err(StatusCode::PAYMENT_REQUIRED)?
+            }
+            UnreservableReason::AlreadyReserved(uid) => {
+                println!("Already reserved by user: {uid}");
+                Err(StatusCode::CONFLICT)?
+            }
+        },
+    }
 }
 
 pub async fn handler_get_user_reservations(

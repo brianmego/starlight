@@ -71,10 +71,11 @@ pub const USER_SWAP_RESERVATION: &str = "
 
 pub const CLAIMED_RESERVATIONS: &str = "
     SELECT id,
-        day as date,
+        day -6h as date,
         reserved_by.username as username,
         location.name as location
     FROM reservation
     WHERE reserved_by.username != None
+      AND day > d'2026-01-01'
     ORDER BY date DESC
 ";

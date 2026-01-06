@@ -3,7 +3,7 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use surrealdb::RecordId;
 
-use crate::{handlers::reservation::RegistrationWindow, models::user::User, DB};
+use crate::{DB, handlers::reservation::RegistrationWindow, models::user::User};
 
 pub enum UnreservableReason {
     NotEnoughTokens,
@@ -27,7 +27,8 @@ impl Reservation {
     pub async fn is_reservable_by_user(
         &self,
         user_id: &str,
-        window: RegistrationWindow<Tz>
+        window: &RegistrationWindow<Tz>,
+        swapping_for_token: bool,
     ) -> Result<(), UnreservableReason> {
         if let Some(id) = &self.reserved_by {
             let key = id.key();
@@ -36,9 +37,22 @@ impl Reservation {
             let is_next_week = self.day() > window.next_week_start();
             if is_next_week {
                 let user = User::get_by_id(user_id).await.unwrap();
-                let current_res_count = user.tokens_used(&window).await;
-                if user.total_tokens(&window) > current_res_count { Ok(()) } else { Err(UnreservableReason::NotEnoughTokens) }
-            } else { Ok(()) }
+                let current_res_count = if swapping_for_token {
+                    user.tokens_used(window).await - 1
+                } else {
+                    user.tokens_used(window).await
+                };
+                if user.total_tokens(window) > current_res_count {
+                    Ok(())
+                } else {
+                    Err(UnreservableReason::NotEnoughTokens)
+                }
+            } else {
+                Ok(())
+            }
         }
+    }
+    pub fn will_cost_token(&self, registration_window: &RegistrationWindow<Tz>) -> bool {
+        self.day() >= registration_window.next_week_start()
     }
 }

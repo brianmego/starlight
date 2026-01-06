@@ -1,17 +1,12 @@
 'use client';
 import { useEffect, useState } from "react";
 import Dashboard from "../../dashboard/page";
-import { ModeContext, RenderMode } from "../../dashboard/page";
 import useSWR, { SWRResponse, useSWRConfig } from 'swr';
 import { getCookie } from 'cookies-next'
 import { Button, Card, CardHeader, Divider, Link, Tabs, Tab, useDisclosure, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spacer } from "@heroui/react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerBody, DrawerFooter } from "@heroui/react";
-import { UserReservationData, ReservationDataRow } from '@/app/lib/definitions';
+import { Action, ModeContext, RenderMode, ReservationDataRow, UserReservationData, } from '@/app/lib/definitions';
 
-enum Action {
-    Swap,
-    Delete
-}
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
@@ -111,7 +106,12 @@ export default function Page() {
     return <>
         <h1><b>My Reservations</b></h1>
         <Drawer isOpen={swapDrawer.isOpen} onOpenChange={swapDrawer.onOpenChange} size="2xl" placement="bottom">
-            <ModeContext.Provider value={{renderMode: RenderMode.Swap, params: {oldId: selectedReservationId, closeCallback: closeSwap}}}>
+            <ModeContext.Provider value={{
+                renderMode: RenderMode.Swap, params: {
+                    oldId: selectedReservationId,
+                    closeCallback: closeSwap
+                }
+            }}>
                 <DrawerContent>
                     {(onClose) => (
                         <>
@@ -181,7 +181,7 @@ export default function Page() {
                 <Tab key="previous" title="Previous Reservations">
                     <PreviousReservations reservations={previousReservations} />
                     <p>
-                        Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://docs.google.com/forms/d/e/1FAIpQLSflzxS_c2HTWysCg2ICEBCDt7YON_-kzw_WqajMA79n0v5NRg/viewform">Google Form</Link>
+                        Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://forms.gle/TTqp7QkCi9yE27dB9">Google Form</Link>
                     </p>
                 </Tab>
             </Tabs>
