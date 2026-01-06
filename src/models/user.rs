@@ -1,5 +1,7 @@
+use chrono::TimeZone;
 use chrono::{
     Datelike, Timelike,
+    Utc,
     Weekday::{Fri, Mon, Sat, Sun, Thu, Tue, Wed},
 };
 use chrono_tz::Tz;
@@ -11,9 +13,10 @@ use crate::{DB, handlers::reservation::RegistrationWindow, queries};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum TroopType {
-    Level1, // M, W-F tokens
-    Level2, // M-F tokens
-    Level3, // infinite tokens
+    Level1,    // M, W-F tokens
+    Level2,    // M-F tokens
+    Level3,    // infinite tokens
+    SingleUse, // One Token ever
 }
 impl From<RecordId> for TroopType {
     fn from(value: RecordId) -> Self {
@@ -23,8 +26,10 @@ impl From<RecordId> for TroopType {
             TroopType::Level2
         } else if value.key().to_string() == "level3" {
             TroopType::Level3
+        } else if value.key().to_string() == "singleUse" {
+            TroopType::SingleUse
         } else {
-            unreachable!("Only 3 troop types in the DB")
+            unreachable!("Only 4 troop types in the DB")
         }
     }
 }
@@ -80,7 +85,12 @@ impl User {
         RecordId::from(("user", &self.id))
     }
     pub async fn tokens_used(&self, window: &RegistrationWindow<Tz>) -> u32 {
-        let next_week_start = SurrealDateTime::from(window.next_week_start().to_utc());
+        let next_week_start = match self.trooptype {
+            TroopType::SingleUse => {
+                SurrealDateTime::from(Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap())
+            },
+            _ => SurrealDateTime::from(window.next_week_start().to_utc())
+        };
         let mut response = DB
             .query(queries::USER_TOKEN_USAGE_COUNT)
             .bind(("user", self.record_id()))
@@ -152,7 +162,8 @@ impl User {
                     }
                 }
             }
-            TroopType::Level3 => 99, // 99 problems, but a booth ain't one
+            TroopType::Level3 => 99,   // 99 problems, but a booth ain't one
+            TroopType::SingleUse => 1, // 1 token ever
         }
     }
 }
@@ -178,7 +189,7 @@ impl From<UserDbRecord> for User {
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    use chrono_tz::America::Chicago;
+    use chrono_tz::{America::Chicago, Tz};
     use test_case::test_case;
 
     #[test_case(
@@ -305,6 +316,11 @@ mod tests {
         &User::new("95ophx5ryqhqku7qn93d", TroopType::Level3, "Name", false),
         &RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
         99; "Lvl3 - Always 99"
+    )]
+    #[test_case(
+        &User::new("95ophx5ryqhqku7qn93d", TroopType::SingleUse, "Name", false),
+        &RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
+        1; "SingleUse - There can be only 1"
     )]
     fn test_user_total_tokens(
         user: &User,
