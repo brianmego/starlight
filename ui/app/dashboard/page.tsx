@@ -5,7 +5,7 @@ import { AllSelections, ModeContext, RenderMode, ReservationData, ResLocation, R
 import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Progress, Spacer, useDisclosure, Link } from "@heroui/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
-// import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
@@ -13,7 +13,15 @@ const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 export default function Page() {
     const { mutate } = useSWRConfig()
     let jwt = getCookie('jwt')?.toString();
-    // const router = useRouter();
+    const reservationFetcher = (url: RequestInfo) => fetch(
+        url,
+        {
+            headers: {
+                "authorization": `Bearer ${jwt}`
+            },
+        }
+    ).then(res => res.json());
+    const router = useRouter();
 
     const [toggleThisWeekReset, setToggleThisWeekReset] = useState(false);
     const [toggleNextWeekReset, setToggleNextWeekReset] = useState(false);
@@ -34,7 +42,7 @@ export default function Page() {
     const [nextWeekDates, setNextWeekDates] = useState<Array<ResDate>>([]);
     const [locations, setLocations] = useState<Array<ResLocation>>([]);
     const [startTimes, setStartTimes] = useState<Array<ResTime>>([]);
-    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation`, fetcher);
+    const { data, error, isLoading }: SWRResponse<ReservationData, boolean, boolean> = useSWR(`${process.env.NEXT_PUBLIC_API_ROOT}/reservation`, reservationFetcher);
 
 
     useEffect(() => {
@@ -88,7 +96,7 @@ export default function Page() {
     }, [dates, locations, startTimes])
 
     useEffect(() => {
-        // router.push("dashboard")
+        router.push("dashboard")
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -242,8 +250,8 @@ export default function Page() {
             </div>
             <Spacer y={4} />
 
-            { mode == RenderMode.Select && <ReserveButton clickHandler={handleReserve} isDisabled={!isReservable} text="Reserve"/>}
-            { mode == RenderMode.Swap && <ReserveButton clickHandler={handleSwap} isDisabled={!isReservable} text="Swap"/>}
+            {mode == RenderMode.Select && <ReserveButton clickHandler={handleReserve} isDisabled={!isReservable} text="Reserve" />}
+            {mode == RenderMode.Swap && <ReserveButton clickHandler={handleSwap} isDisabled={!isReservable} text="Swap" />}
         </>
     )
 }

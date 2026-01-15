@@ -11,12 +11,13 @@ use surrealdb::sql::Datetime as SurrealDateTime;
 
 use crate::{DB, handlers::reservation::RegistrationWindow, queries};
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Copy)]
 pub enum TroopType {
     Level1,    // M, W-F tokens
     Level2,    // M-F tokens
     Level3,    // infinite tokens
     SingleUse, // One Token ever
+    FridayOnly, // Only gets 3 tokens on a Friday for the next week
 }
 impl From<RecordId> for TroopType {
     fn from(value: RecordId) -> Self {
@@ -28,8 +29,10 @@ impl From<RecordId> for TroopType {
             TroopType::Level3
         } else if value.key().to_string() == "singleUse" {
             TroopType::SingleUse
+        } else if value.key().to_string() == "fridayOnly" {
+            TroopType::FridayOnly
         } else {
-            unreachable!("Only 4 troop types in the DB")
+            unreachable!("Only 5 troop types in the DB")
         }
     }
 }
@@ -89,6 +92,9 @@ impl User {
             TroopType::SingleUse => {
                 SurrealDateTime::from(Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap())
             },
+            TroopType::FridayOnly => {
+                SurrealDateTime::from(window.last_week_start().to_utc())
+            }
             _ => SurrealDateTime::from(window.next_week_start().to_utc())
         };
         let mut response = DB
@@ -164,6 +170,7 @@ impl User {
             }
             TroopType::Level3 => 99,   // 99 problems, but a booth ain't one
             TroopType::SingleUse => 1, // 1 token ever
+            TroopType::FridayOnly => 3, // 3 tokens ever
         }
     }
 }
@@ -321,6 +328,11 @@ mod tests {
         &User::new("95ophx5ryqhqku7qn93d", TroopType::SingleUse, "Name", false),
         &RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
         1; "SingleUse - There can be only 1"
+    )]
+    #[test_case(
+        &User::new("95ophx5ryqhqku7qn93d", TroopType::FridayOnly, "Name", false),
+        &RegistrationWindow::new(Chicago.with_ymd_and_hms(2025, 1, 24, 22, 0, 0).unwrap()),
+        3; "FridayOnly - 3 next week"
     )]
     fn test_user_total_tokens(
         user: &User,

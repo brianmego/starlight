@@ -3,7 +3,11 @@ use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use surrealdb::RecordId;
 
-use crate::{DB, handlers::reservation::RegistrationWindow, models::user::User};
+use crate::{
+    DB,
+    handlers::reservation::RegistrationWindow,
+    models::user::{TroopType, User},
+};
 
 pub enum UnreservableReason {
     NotEnoughTokens,
@@ -29,12 +33,17 @@ impl Reservation {
         user_id: &str,
         window: &RegistrationWindow<Tz>,
         swapping_for_token: bool,
+        troop_type: TroopType,
     ) -> Result<(), UnreservableReason> {
         if let Some(id) = &self.reserved_by {
             let key = id.key();
             Err(UnreservableReason::AlreadyReserved(key.to_string()))
         } else {
-            let is_next_week = self.day() > window.next_week_start();
+            let is_next_week = match troop_type {
+                TroopType::FridayOnly => self.day() > window.last_week_start(),
+                _ => self.day() > window.next_week_start(),
+            };
+
             if is_next_week {
                 let user = User::get_by_id(user_id).await.unwrap();
                 let current_res_count = if swapping_for_token {
@@ -52,7 +61,10 @@ impl Reservation {
             }
         }
     }
-    pub fn will_cost_token(&self, registration_window: &RegistrationWindow<Tz>) -> bool {
-        self.day() >= registration_window.next_week_start()
+    pub fn will_cost_token(&self, registration_window: &RegistrationWindow<Tz>, troop_type: TroopType) -> bool {
+        match troop_type {
+            TroopType::FridayOnly => self.day() >= registration_window.last_week_start(),
+            _ => self.day() >= registration_window.next_week_start()
+        }
     }
 }
