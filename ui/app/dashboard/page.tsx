@@ -5,7 +5,7 @@ import { AllSelections, ModeContext, RenderMode, ReservationData, ResLocation, R
 import { Button, Listbox, ListboxItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Popover, PopoverTrigger, PopoverContent, Progress, Spacer, useDisclosure, Link } from "@heroui/react";
 import { ListboxWrapper } from "./ListboxWrapper";
 import { getCookie } from 'cookies-next'
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 const fetcher = (url: RequestInfo) => fetch(url).then(res => res.json());
 
@@ -22,6 +22,7 @@ export default function Page() {
         }
     ).then(res => res.json());
     const router = useRouter();
+    const pathname = usePathname();
 
     const [toggleThisWeekReset, setToggleThisWeekReset] = useState(false);
     const [toggleNextWeekReset, setToggleNextWeekReset] = useState(false);
@@ -96,7 +97,9 @@ export default function Page() {
     }, [dates, locations, startTimes])
 
     useEffect(() => {
-        router.push("dashboard")
+        if (!pathname.startsWith("/dashboard")) {
+            router.push("dashboard");
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
