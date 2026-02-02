@@ -179,10 +179,10 @@ export default function Page() {
                     <NextWeekReservations reservations={nextWeekReservations} showDeleteConfirmation={showDeleteConfirmation} showSwap={showSwap} />
                 </Tab>
                 <Tab key="previous" title="Previous Reservations">
-                    <PreviousReservations reservations={previousReservations} />
                     <p>
                         Don&apos;t forget to complete the google form about your booth: <Link isExternal showAnchorIcon href="https://forms.gle/TTqp7QkCi9yE27dB9">Google Form</Link>
                     </p>
+                    <PreviousReservations reservations={previousReservations} />
                 </Tab>
             </Tabs>
         </div>
